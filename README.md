@@ -32,6 +32,7 @@ dissertacao/
 │       ├── utils.py             # Utilitários geoespaciais (CRS UTM)
 │       ├── network.py           # Grafo viário e snapping
 │       ├── pois.py              # Coleta de Pontos de Interesse
+│       ├── penalties.py         # Penalização ambiental de arestas
 │       └── routing.py           # Roteamento A* com paralelismo
 ├── notebooks/
 │   ├── ambx_tests.ipynb        # Testes e experimentos interativos
@@ -174,16 +175,16 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 | `routing` | ✅ | Roteamento A* com heurística euclidiana admissível, paralelismo via `multiprocessing.Pool`, matriz origem-destino |
 | `environment` | 🟡 | Carregamento de camadas ambientais vetoriais (Shapefile, GeoJSON, GeoPackage) com recorte espacial — testado. Raster (GeoTIFF) com recorte, reamostragem e reprojeção — implementado, **não testado**. Container ``EnvironmentLayers`` unificado |
 | `demographics` | ❌ | Compatibilização de dados censitários (setores irregulares → células da malha regular) |
-| `penalties` | ❌ | Funções de penalização ambiental sobre arestas: sobreposição raster (média de pixels), interseção vetorial, interdição total |
+| `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `compose_penalties`. Suporte a sobreposição vetorial, interdição total e composição cumulativa de múltiplas camadas |
 | `indicators` | ❌ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário |
 | `comparison` | ❌ | Análise comparativa entre cenário típico e condicionado (Δ absoluto/relativo, mapas de calor, testes estatísticos) |
 | `inequality` | ❌ | Análise de desigualdade socioeconômica (regressão linear, agrupamento socio-espacial) |
 
-**Progresso:** 6 / 11 módulos concluídos (~55%)
+**Progresso:** 7 / 11 módulos concluídos (~64%)
 
 ### Próximos passos
 
-1. **`penalties`** — Função core do framework: `W_cond = f(W_base, C)`, combinando sobreposição raster e interseção vetorial.
+1. **Raster** — Testar `load_raster` e implementar `apply_raster_penalty`.
 2. **`indicators`** — Cálculo de PTh, Índice G e F15 para cada cenário.
 3. **`demographics`** — Compatibilização de dados censitários com a malha.
 
