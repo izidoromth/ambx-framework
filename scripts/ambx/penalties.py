@@ -16,8 +16,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
 import geopandas as gpd
+import numpy as np
+import rasterio
+from rasterio.sample import sample_gen
+from rasterio.warp import transform as rio_transform
 
-from ambx.environment import EnvironmentLayers, VectorLayer
+from ambx.environment import EnvironmentLayers, RasterLayer, VectorLayer
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +153,122 @@ def apply_vector_penalty(
 
 
 # ---------------------------------------------------------------------------
+# Penalização de camadas raster
+# ---------------------------------------------------------------------------
+
+
+def apply_raster_penalty(
+    edges_gdf: gpd.GeoDataFrame,
+    raster_layer: RasterLayer,
+    rule: PenaltyRule,
+    sampling: Literal["midpoint", "nodes", "centroid"] = "midpoint",
+) -> gpd.GeoDataFrame:
+    """Aplica penalidade raster sobre as arestas da rede.
+
+    Para cada aresta, amostra o valor do raster em um ponto
+    representativo da aresta (padrão: ponto médio) e aplica
+    ``rule.penalty_fn`` para obter o fator multiplicador.
+
+    Arestas cujo ponto de amostragem cai em pixel nodata
+    permanecem com o custo original (fator 1.0).
+
+    Parameters
+    ----------
+    edges_gdf : gpd.GeoDataFrame
+        Arestas da rede com geometria ``LineString`` e o campo de
+        custo definido em ``rule.weight_field``.
+    raster_layer : RasterLayer
+        Camada raster carregada (com ``data``, ``transform``, ``crs``).
+    rule : PenaltyRule
+        Regra de penalização com ``penalty_fn``.
+    sampling : Literal["midpoint", "nodes", "centroid"], default "midpoint"
+        Estratégia de amostragem:
+        - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
+        - ``"nodes"``: amostra ambos os nós (u, v) e usa o maior fator
+        - ``"centroid"``: centróide da geometria da aresta
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        ``edges_gdf`` com o campo ``rule.weight_field`` atualizado.
+
+    Raises
+    ------
+    ValueError
+        Se ``sampling`` for inválido.
+    """
+    wf = rule.weight_field or "travel_time"
+
+    # --- Determinar pontos de amostragem ---
+    if sampling == "midpoint":
+        pts = edges_gdf.geometry.interpolate(0.5, normalized=True)
+    elif sampling == "centroid":
+        pts = edges_gdf.geometry.centroid
+    elif sampling == "nodes":
+        # Pega coordenadas dos nós de cada aresta
+        coords_list = []
+        for geom in edges_gdf.geometry:
+            c = list(geom.coords)
+            # Ponto médio entre os dois nós como fallback (mas vamos
+            # amostrar os dois nós separadamente)
+            mid = geom.interpolate(0.5, normalized=True)
+            coords_list.append(mid)
+        pts = gpd.GeoSeries(coords_list, crs=edges_gdf.crs)
+    else:
+        raise ValueError(f"Estratégia de amostragem inválida: {sampling}")
+
+    # --- Reprojetar pontos para o CRS do raster, se necessário ---
+    pts_gdf = gpd.GeoDataFrame(geometry=pts, crs=edges_gdf.crs)
+    if str(pts_gdf.crs) != raster_layer.crs:
+        pts_gdf = pts_gdf.to_crs(raster_layer.crs)
+
+    # --- Amostrar ---
+    # sample_gen precisa de um dataset rasterio aberto, não do array numpy.
+    # Por isso reabrimos o arquivo pelo source_path.
+    if raster_layer.source_path is None:
+        raise ValueError(
+            f"RasterLayer '{raster_layer.name}' não tem source_path. "
+            "Carregue o raster de um arquivo ou use apply_raster_penalty "
+            "com um RasterLayer que tenha source_path."
+        )
+
+    coords = [(pt.x, pt.y) for pt in pts_gdf.geometry]
+    with rasterio.open(raster_layer.source_path) as src:
+        # Se o raster foi recortado (clip), suas dimensões podem diferir
+        # do arquivo original. Precisamos transformar as coordenadas
+        # do CRS do raster_layer para o CRS do arquivo original, se
+        # diferirem.
+        src_crs = src.crs.to_string() if src.crs else raster_layer.crs
+        if src_crs != raster_layer.crs:
+            # Transforma coordenadas para o CRS do arquivo
+            xs, ys = zip(*coords)
+            transformed = rio_transform(
+                raster_layer.crs, src_crs, xs, ys
+            )
+            sample_coords = list(zip(transformed[0], transformed[1]))
+        else:
+            sample_coords = coords
+
+        samples = list(sample_gen(src, sample_coords))
+        values = np.array([
+            s[0] if s[0] != src.nodata else np.nan
+            for s in samples
+        ], dtype=float)
+
+    # --- Aplicar penalty_fn ---
+    factors = np.where(
+        np.isnan(values),
+        1.0,
+        [rule.penalty_fn(v) for v in values],
+    )
+
+    result = edges_gdf.copy()
+    result[wf] = result[wf] * factors
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Orquestrador de múltiplas penalidades
 # ---------------------------------------------------------------------------
 
@@ -217,11 +337,17 @@ def compose_penalties(
             result = apply_vector_penalty(result, layer, rule)
 
         elif rule.layer_type == "raster":
-            raise NotImplementedError(
-                f"Penalidade raster para '{rule.layer_name}' ainda não "
-                f"implementada. As funções raster do environment.py "
-                f"precisam ser validadas primeiro."
-            )
+            matching = [r for r in env.rasters if r.name == rule.layer_name]
+            if not matching:
+                raise ValueError(
+                    f"Camada raster '{rule.layer_name}' não encontrada "
+                    f"em EnvironmentLayers. Disponíveis: "
+                    f"{[r.name for r in env.rasters]}"
+                )
+            layer = matching[0]
+
+            rule.weight_field = wf
+            result = apply_raster_penalty(result, layer, rule)
 
         else:
             raise ValueError(f"Tipo de camada desconhecido: {rule.layer_type}")
