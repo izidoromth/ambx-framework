@@ -32,6 +32,7 @@ dissertacao/
 │       ├── utils.py             # Utilitários geoespaciais (CRS UTM)
 │       ├── network.py           # Grafo viário e snapping
 │       ├── pois.py              # Coleta de Pontos de Interesse
+│       ├── environment.py       # Camadas ambientais (raster / vetorial)
 │       ├── penalties.py         # Penalização ambiental de arestas
 │       └── routing.py           # Roteamento A* com paralelismo
 ├── notebooks/
@@ -173,9 +174,9 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 | `network` | ✅ | Construção do grafo viário a partir do OSM, projeção para CRS métrico, vinculação (snapping) dos centróides da malha à rede |
 | `pois` | ✅ | Coleta e categorização de Pontos de Interesse do OSM (saúde, educação, transporte, alimentação), com buffer para conurbações |
 | `routing` | ✅ | Roteamento A* com heurística euclidiana admissível, paralelismo via `multiprocessing.Pool`, matriz origem-destino |
-| `environment` | 🟡 | Carregamento de camadas ambientais vetoriais (Shapefile, GeoJSON, GeoPackage) com recorte espacial — testado. Raster (GeoTIFF) com recorte, reamostragem e reprojeção — implementado, **não testado**. Container ``EnvironmentLayers`` unificado |
+| `environment` | ✅ | Carregamento de camadas ambientais vetoriais (Shapefile, GeoJSON, GeoPackage) e raster (GeoTIFF) com recorte espacial, reamostragem e reprojeção. Container ``EnvironmentLayers`` unificado. Funções: ``load_vector``, ``load_vector_from_gdf``, ``load_raster``, ``load_raster_from_array``, ``raster_stats_for_geometry``, ``sample_raster_at_points``, ``build_environment`` |
 | `demographics` | ❌ | Compatibilização de dados censitários (setores irregulares → células da malha regular) |
-| `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `compose_penalties`. Suporte a sobreposição vetorial, interdição total e composição cumulativa de múltiplas camadas |
+| `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `apply_raster_penalty`, `compose_penalties`. Suporte a raster, vetorial, interdição total e composição cumulativa de múltiplas camadas |
 | `indicators` | ❌ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário |
 | `comparison` | ❌ | Análise comparativa entre cenário típico e condicionado (Δ absoluto/relativo, mapas de calor, testes estatísticos) |
 | `inequality` | ❌ | Análise de desigualdade socioeconômica (regressão linear, agrupamento socio-espacial) |
@@ -184,9 +185,10 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 
 ### Próximos passos
 
-1. **Raster** — Testar `load_raster` e implementar `apply_raster_penalty`.
-2. **`indicators`** — Cálculo de PTh, Índice G e F15 para cada cenário.
-3. **`demographics`** — Compatibilização de dados censitários com a malha.
+1. **`indicators`** — Cálculo de PTh, Índice G e F15 para cada cenário.
+2. **`demographics`** — Compatibilização de dados censitários com a malha.
+3. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
+4. **`inequality`** — Análise de desigualdade socioeconômica.
 
 ---
 
