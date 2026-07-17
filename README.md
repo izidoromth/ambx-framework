@@ -177,18 +177,17 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 | `environment` | ✅ | Carregamento de camadas ambientais vetoriais (Shapefile, GeoJSON, GeoPackage) e raster (GeoTIFF) com recorte espacial, reamostragem e reprojeção. Container ``EnvironmentLayers`` unificado. Funções: ``load_vector``, ``load_vector_from_gdf``, ``load_raster``, ``load_raster_from_array``, ``raster_stats_for_geometry``, ``sample_raster_at_points``, ``build_environment`` |
 | `demographics` | ❌ | Compatibilização de dados censitários (setores irregulares → células da malha regular) |
 | `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `apply_raster_penalty`, `compose_penalties`. Suporte a raster, vetorial, interdição total e composição cumulativa de múltiplas camadas |
-| `indicators` | ❌ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário |
+| `indicators` | ✅ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário. Funções: `compute_pth`, `compute_pth_wide`, `compute_gini`, `compute_f15`, `compute_all_indicators` |
 | `comparison` | ❌ | Análise comparativa entre cenário típico e condicionado (Δ absoluto/relativo, mapas de calor, testes estatísticos) |
 | `inequality` | ❌ | Análise de desigualdade socioeconômica (regressão linear, agrupamento socio-espacial) |
 
-**Progresso:** 7 / 11 módulos concluídos (~64%)
+**Progresso:** 8 / 11 módulos concluídos (~73%)
 
 ### Próximos passos
 
-1. **`indicators`** — Cálculo de PTh, Índice G e F15 para cada cenário.
-2. **`demographics`** — Compatibilização de dados censitários com a malha.
-3. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
-4. **`inequality`** — Análise de desigualdade socioeconômica.
+1. **`demographics`** — Compatibilização de dados censitários com a malha.
+2. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
+3. **`inequality`** — Análise de desigualdade socioeconômica.
 
 ---
 

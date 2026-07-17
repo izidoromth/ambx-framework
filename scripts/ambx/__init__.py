@@ -22,4 +22,5 @@ from ambx import (
     routing,
     environment,
     penalties,
+    indicators,
 )

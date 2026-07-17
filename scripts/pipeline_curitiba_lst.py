@@ -38,6 +38,7 @@ from ambx.pois import get_pois
 from ambx.routing import snap_pois_to_network, routing_matrix
 from ambx.environment import load_raster, build_environment
 from ambx.penalties import PenaltyRule, compose_penalties
+from ambx.indicators import compute_pth, compute_pth_wide, compute_gini, compute_f15, compute_all_indicators
 
 warnings.filterwarnings("ignore")
 np.random.seed(42)
@@ -335,6 +336,48 @@ plt.tight_layout()
 plt.savefig("notebooks/histograma_curitiba_lst.png", dpi=150, bbox_inches="tight")
 print(f"  Histograma salvo: notebooks/histograma_curitiba_lst.png")
 plt.close()
+
+# ===================================================================
+# 7 — INDICADORES (PTh, Gini, F15)
+# ===================================================================
+print("\n" + "=" * 60)
+print("  [7] Indicadores de Acessibilidade")
+print("=" * 60)
+
+# PTh — Típico
+print("\n  PTh (k=3) — Típico:")
+pth_typ = compute_pth(matrix_typ, k=3)
+print(f"    {len(pth_typ)} linhas")
+print(pth_typ.groupby("poi_category")["pth"].describe().round(2).to_string())
+
+# PTh — Condicionado
+print("\n  PTh (k=3) — Condicionado:")
+pth_cond = compute_pth(matrix_cond, k=3)
+print(f"    {len(pth_cond)} linhas")
+print(pth_cond.groupby("poi_category")["pth"].describe().round(2).to_string())
+
+# Gini por categoria — Típico vs Condicionado
+print("\n  Índice de Gini por categoria:")
+pth_wide_typ = compute_pth_wide(pth_typ)
+pth_wide_cond = compute_pth_wide(pth_cond)
+for cat in pth_wide_typ.columns:
+    g_typ = compute_gini(pth_wide_typ[cat].dropna())
+    if cat in pth_wide_cond.columns:
+        g_cond = compute_gini(pth_wide_cond[cat].dropna())
+        print(f"    {cat:18s}:  típico G={g_typ:.4f}  |  condic. G={g_cond:.4f}  "
+              f"|  Δ={g_cond - g_typ:+.4f}")
+
+# F15 (sem dados censitários ainda — pula)
+print("\n  F15:  N/A (população por célula ainda não disponível —")
+print(f"         depende do módulo demographics)")
+
+# compute_all_indicators — teste do orquestrador
+print("\n  compute_all_indicators (apenas típico, sem population):")
+result = compute_all_indicators(matrix_typ, k=3)
+print(f"    pth_typ:      {result['pth_typ'].shape}")
+print(f"    pth_wide_typ: {result['pth_wide_typ'].shape}")
+print(f"    gini_typ:     {result['gini_typ']}")
+print(f"    f15_typ:      {result['f15_typ']}  (vazio, sem population)")
 
 # ===================================================================
 # RESUMO FINAL
