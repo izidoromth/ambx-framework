@@ -156,6 +156,9 @@ def generate_grid(location: str, grid_format: GridFormat = GridFormat.HEXAGON,
         crs=projected.crs,
     )
 
+    # Adicionar identificador único de célula
+    grid["cell_idx"] = range(len(grid))
+
     # Reprojetar para WGS84
     grid = grid.to_crs("EPSG:4326")
     return grid
