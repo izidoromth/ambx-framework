@@ -30,16 +30,25 @@ dissertacao/
 │       ├── __init__.py          # Versão 0.1.0
 │       ├── grid.py              # Geração de malha territorial
 │       ├── utils.py             # Utilitários geoespaciais (CRS UTM)
+│       ├── demographics.py      # Dados censitários e interpolação areal
 │       ├── network.py           # Grafo viário e snapping
 │       ├── pois.py              # Coleta de Pontos de Interesse
 │       ├── environment.py       # Camadas ambientais (raster / vetorial)
 │       ├── penalties.py         # Penalização ambiental de arestas
-│       └── routing.py           # Roteamento A* com paralelismo
+│       ├── routing.py           # Roteamento A* com paralelismo
+│       └── indicators.py        # Indicadores PTh, Gini e F15
+│   └── extract/
+│       └── download_censo_2022.py  # EL do Censo Demográfico 2022
 ├── notebooks/
-│   ├── ambx_tests.ipynb        # Testes e experimentos interativos
+│   ├── ambx_tests_porto_alegre.ipynb  # Testes e experimentos (POA)
 │   └── qualifying/
 │       ├── generate_simulated_flood_areas..ipynb
 │       └── generate_simulated_scenarios.ipynb
+├── data/
+│   └── raw/
+│       ├── censo_2022/          # Censo Demográfico 2022 (GeoParquet)
+│       ├── curitiba/            # Camadas ambientais de Curitiba
+│       └── porto_alegre/        # Camadas ambientais de Porto Alegre
 ├── cache/                      # Cache de requisições OSM (JSON)
 ├── docs/
 │   └── qualifying/             # Documento de qualificação (LaTeX)
@@ -175,19 +184,18 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 | `pois` | ✅ | Coleta e categorização de Pontos de Interesse do OSM (saúde, educação, transporte, alimentação), com buffer para conurbações |
 | `routing` | ✅ | Roteamento A* com heurística euclidiana admissível, paralelismo via `multiprocessing.Pool`, matriz origem-destino |
 | `environment` | ✅ | Carregamento de camadas ambientais vetoriais (Shapefile, GeoJSON, GeoPackage) e raster (GeoTIFF) com recorte espacial, reamostragem e reprojeção. Container ``EnvironmentLayers`` unificado. Funções: ``load_vector``, ``load_vector_from_gdf``, ``load_raster``, ``load_raster_from_array``, ``raster_stats_for_geometry``, ``sample_raster_at_points``, ``build_environment`` |
-| `demographics` | ❌ | Compatibilização de dados censitários (setores irregulares → células da malha regular) |
+| `demographics` | ✅ | Carga de setores censitários (GeoParquet), filtro por município, interpolação areal (`area_weighted` / `density_weighted`) de variáveis do Censo 2022 para a malha regular. Funções: ``load_tracts``, ``filter_by_area``, ``interpolate_to_grid`` |
 | `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `apply_raster_penalty`, `compose_penalties`. Suporte a raster, vetorial, interdição total e composição cumulativa de múltiplas camadas |
 | `indicators` | ✅ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário. Funções: `compute_pth`, `compute_pth_wide`, `compute_gini`, `compute_f15`, `compute_all_indicators` |
 | `comparison` | ❌ | Análise comparativa entre cenário típico e condicionado (Δ absoluto/relativo, mapas de calor, testes estatísticos) |
 | `inequality` | ❌ | Análise de desigualdade socioeconômica (regressão linear, agrupamento socio-espacial) |
 
-**Progresso:** 8 / 11 módulos concluídos (~73%)
+**Progresso:** 9 / 11 módulos concluídos (~82%)
 
 ### Próximos passos
 
-1. **`demographics`** — Compatibilização de dados censitários com a malha.
-2. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
-3. **`inequality`** — Análise de desigualdade socioeconômica.
+1. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
+2. **`inequality`** — Análise de desigualdade socioeconômica.
 
 ---
 
