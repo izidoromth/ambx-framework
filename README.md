@@ -142,6 +142,11 @@ pip install -r requirements.txt
 - [scikit-learn](https://scikit-learn.org/) — aprendizado de máquina
 - [scipy](https://scipy.org/) — computação científica
 
+### Dependências opcionais (comparison / inequality)
+
+- [statsmodels](https://www.statsmodels.org/) — regressão com p-valores e diagnóstico
+- [esda](https://pysal.org/esda/) — estatísticas de autocorrelação espacial (I de Moran)
+
 ---
 
 ## Uso
@@ -194,8 +199,18 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 
 ### Próximos passos
 
-1. **`comparison`** — Análise comparativa entre cenário típico e condicionado.
-2. **`inequality`** — Análise de desigualdade socioeconômica.
+Os módulos `comparison` e `inequality` serão implementados com base nas dependências já disponíveis (`scikit-learn`, `scipy`, `pandas`, `geopandas`):
+
+**1. `comparison`** — Análise comparativa entre cenário típico e condicionado.
+- Delta absoluto e relativo dos indicadores (PTh, Gini, F15) entre cenários
+- Testes de hipótese pareados (Wilcoxon / t-pareado via `scipy.stats`)
+- Mapeamento espacial das diferenças (ΔPTh por célula)
+- Associação local (LISA) para identificar manchas de degradação — exigirá `esda` (PySAL) ou implementação manual
+
+**2. `inequality`** — Análise de desigualdade socioeconômica.
+- **Regressão linear MQO** com `statsmodels` (não `sklearn.linear_model`) — porque `statsmodels` fornece p-valores, intervalos de confiança, R² ajustado e diagnóstico de resíduos, essenciais para validar a significância estatística das variáveis socioeconômicas
+- **Clusterização socioespacial** via `sklearn.cluster.AgglomerativeClustering` com restrição de contiguidade (matriz de adjacência espacial Queen/Rook) — porque é o método mais adequado para produzir **regiões contíguas e internamente homogêneas**, ao contrário de K-Means que ignora a vizinhança geográfica
+- PCA exploratório para redução de dimensionalidade (`sklearn.decomposition.PCA`)
 
 ---
 
