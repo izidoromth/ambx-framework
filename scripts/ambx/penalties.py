@@ -62,12 +62,22 @@ class PenaltyRule:
         ...     return 1.0
         >>> PenaltyRule("inundacao", "vector", penalty_fn=flood_factor)
         PenaltyRule(layer_name='inundacao', layer_type='vector', ...)
+
+    sampling : Literal["midpoint", "segments"], default "midpoint"
+        Estratégia de amostragem do raster (ignorado para camadas vetoriais):
+        - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
+        - ``"segments"``: segmenta a aresta em ``n_samples`` pontos
+          equidistantes e usa o maior fator entre eles (pior caso)
+    n_samples : int, default 4
+        Número de pontos por aresta quando ``sampling="segments"``.
     """
 
     layer_name: str
     layer_type: Literal["raster", "vector"]
     weight_field: str | None = None
     penalty_fn: Callable[[Any], float] = field(default=lambda v: 1.0)
+    sampling: Literal["midpoint", "segments"] = "midpoint"
+    n_samples: int = 4
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +171,8 @@ def apply_raster_penalty(
     edges_gdf: gpd.GeoDataFrame,
     raster_layer: RasterLayer,
     rule: PenaltyRule,
-    sampling: Literal["midpoint", "nodes", "centroid"] = "midpoint",
+    sampling: Literal["midpoint", "segments"] = "midpoint",
+    n_samples: int = 4,
 ) -> gpd.GeoDataFrame:
     """Aplica penalidade raster sobre as arestas da rede.
 
@@ -181,11 +192,15 @@ def apply_raster_penalty(
         Camada raster carregada (com ``data``, ``transform``, ``crs``).
     rule : PenaltyRule
         Regra de penalização com ``penalty_fn``.
-    sampling : Literal["midpoint", "nodes", "centroid"], default "midpoint"
+    sampling : Literal["midpoint", "segments"], default "midpoint"
         Estratégia de amostragem:
         - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
-        - ``"nodes"``: amostra ambos os nós (u, v) e usa o maior fator
-        - ``"centroid"``: centróide da geometria da aresta
+        - ``"segments"``: segmenta a aresta em ``n_samples`` pontos equidistantes
+          (incluindo os extremos) e usa o maior fator entre eles (pior caso)
+    n_samples : int, default 4
+        Número de pontos por aresta quando ``sampling="segments"``.
+        A cada ponto amostra-se o raster, aplica-se ``penalty_fn`` e o fator
+        final da aresta é o **máximo** (pior caso) entre todos os pontos.
 
     Returns
     -------
@@ -200,25 +215,38 @@ def apply_raster_penalty(
     wf = rule.weight_field or "travel_time"
 
     # --- Determinar pontos de amostragem ---
+    # Cada aresta pode contribuir com 1 ou mais pontos (ex.: "segments"
+    # amostra n_samples pontos ao longo da aresta). Mantemos uma lista
+    # com o mapeamento de cada ponto de volta à sua aresta.
     if sampling == "midpoint":
-        pts = edges_gdf.geometry.interpolate(0.5, normalized=True)
-    elif sampling == "centroid":
-        pts = edges_gdf.geometry.centroid
-    elif sampling == "nodes":
-        # Pega coordenadas dos nós de cada aresta
-        coords_list = []
-        for geom in edges_gdf.geometry:
-            c = list(geom.coords)
-            # Ponto médio entre os dois nós como fallback (mas vamos
-            # amostrar os dois nós separadamente)
-            mid = geom.interpolate(0.5, normalized=True)
-            coords_list.append(mid)
-        pts = gpd.GeoSeries(coords_list, crs=edges_gdf.crs)
+        point_groups = [
+            [geom.interpolate(0.5, normalized=True)]
+            for geom in edges_gdf.geometry
+        ]
+    elif sampling == "segments":
+        # Segmenta a aresta em n_samples pontos equidistantes (incluindo
+        # os extremos) e agrega o fator pelo MAIOR valor (pior caso).
+        n = max(n_samples, 2)  # garante ao menos os dois extremos
+        point_groups = [
+            [
+                geom.interpolate(i / (n - 1), normalized=True)
+                for i in range(n)
+            ]
+            for geom in edges_gdf.geometry
+        ]
     else:
         raise ValueError(f"Estratégia de amostragem inválida: {sampling}")
 
+    # Achatamento: lista única de pontos + índices de aresta de origem
+    flat_points = []
+    point_to_edge = []
+    for edge_idx, group in enumerate(point_groups):
+        for pt in group:
+            flat_points.append(pt)
+            point_to_edge.append(edge_idx)
+
     # --- Reprojetar pontos para o CRS do raster, se necessário ---
-    pts_gdf = gpd.GeoDataFrame(geometry=pts, crs=edges_gdf.crs)
+    pts_gdf = gpd.GeoDataFrame(geometry=flat_points, crs=edges_gdf.crs)
     if str(pts_gdf.crs) != raster_layer.crs:
         pts_gdf = pts_gdf.to_crs(raster_layer.crs)
 
@@ -256,10 +284,25 @@ def apply_raster_penalty(
         ], dtype=float)
 
     # --- Aplicar penalty_fn ---
-    factors = np.where(
+    # Cada ponto gera um fator; para arestas com múltiplos pontos
+    # (ex.: "segments"), agrega pelo MAIOR fator (pior caso).
+    per_point_factors = np.where(
         np.isnan(values),
         1.0,
         [rule.penalty_fn(v) for v in values],
+    )
+
+    # Mapeia o fator de cada ponto de volta para a aresta e agrega.
+    factors_by_edge: dict[int, float] = {}
+    for edge_idx, factor in zip(point_to_edge, per_point_factors):
+        cur = factors_by_edge.get(edge_idx, 0.0)
+        # Pior caso: mantém o maior fator entre os pontos da aresta
+        if cur == 0.0 or factor > cur:
+            factors_by_edge[edge_idx] = factor
+
+    factors = np.array(
+        [factors_by_edge.get(i, 1.0) for i in range(len(edges_gdf))],
+        dtype=float,
     )
 
     result = edges_gdf.copy()
@@ -347,7 +390,13 @@ def compose_penalties(
             layer = matching[0]
 
             rule.weight_field = wf
-            result = apply_raster_penalty(result, layer, rule)
+            result = apply_raster_penalty(
+                result,
+                layer,
+                rule,
+                sampling=rule.sampling,
+                n_samples=rule.n_samples,
+            )
 
         else:
             raise ValueError(f"Tipo de camada desconhecido: {rule.layer_type}")
