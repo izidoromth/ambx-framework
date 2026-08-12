@@ -142,10 +142,11 @@ pip install -r requirements.txt
 - [scikit-learn](https://scikit-learn.org/) — aprendizado de máquina
 - [scipy](https://scipy.org/) — computação científica
 
-### Dependências opcionais (comparison / inequality)
-
-- [statsmodels](https://www.statsmodels.org/) — regressão com p-valores e diagnóstico
-- [esda](https://pysal.org/esda/) — estatísticas de autocorrelação espacial (I de Moran)
+> **Fora do escopo:** os módulos `comparison` e `inequality` deixaram de fazer parte
+> da biblioteca `ambx`. A lib entrega os blocos para **cálculo de tempos típicos e
+> condicionados** (`indicators`, `penalties`, `routing`), e as análises comparativa e
+> de desigualdade socioeconômica ficam a cargo do usuário, que pode implementá-las
+> com as ferramentas de sua preferência.
 
 ---
 
@@ -192,25 +193,29 @@ pois = get_pois("Curitiba, Parana, Brazil", buffer=2000)
 | `demographics` | ✅ | Carga de setores censitários (GeoParquet), filtro por município, interpolação areal (`area_weighted` / `density_weighted`) de variáveis do Censo 2022 para a malha regular. Funções: ``load_tracts``, ``filter_by_area``, ``interpolate_to_grid`` |
 | `penalties` | ✅ | Funções de penalização ambiental sobre arestas: `PenaltyRule`, `apply_vector_penalty`, `apply_raster_penalty`, `compose_penalties`. Suporte a raster, vetorial, interdição total e composição cumulativa de múltiplas camadas |
 | `indicators` | ✅ | Cálculo dos indicadores PTh, Índice G (Gini) e F15 para cada cenário. Funções: `compute_pth`, `compute_pth_wide`, `compute_gini`, `compute_f15`, `compute_all_indicators` |
-| `comparison` | ❌ | Análise comparativa entre cenário típico e condicionado (Δ absoluto/relativo, mapas de calor, testes estatísticos) |
-| `inequality` | ❌ | Análise de desigualdade socioeconômica (regressão linear, agrupamento socio-espacial) |
+| ~~`comparison`~~ | ➖ | ~~Análise comparativa entre cenário típico e condicionado~~ — **fora do escopo** |
+| ~~`inequality`~~ | ➖ | ~~Análise de desigualdade socioeconômica~~ — **fora do escopo** |
 
-**Progresso:** 9 / 11 módulos concluídos (~82%)
+**Progresso:** 9 / 9 módulos concluídos (100% — os módulos `comparison` e `inequality` saíram do escopo da lib)
 
-### Próximos passos
+### Escopo da biblioteca
 
-Os módulos `comparison` e `inequality` serão implementados com base nas dependências já disponíveis (`scikit-learn`, `scipy`, `pandas`, `geopandas`):
+A `ambx` é responsável por **modelar a rede e calcular os tempos de acesso típicos e condicionados**
+(malha, POIs, rede, roteamento, penalidades e indicadores). A análise **comparativa** entre cenários
+(Δ absoluto/relativo, testes estatísticos, mapas de impacto) e a análise de **desigualdade socioeconômica**
+(regressão, agrupamento socioespacial) deixaram de fazer parte do escopo da lib: por serem análises
+fortemente dependentes da pergunta de pesquisa e do desenho experimental de cada estudo, são deixadas
+**para o usuário**, que pode implementá-las com as ferramentas de sua preferência a partir dos blocos
+fornecidos pela lib (ex.: `compute_all_indicators` para obter `PTh`/`Gini`/`F15` de cada cenário e,
+então, comparar ou cruzar com dados socioeconômicos).
 
-**1. `comparison`** — Análise comparativa entre cenário típico e condicionado.
-- Delta absoluto e relativo dos indicadores (PTh, Gini, F15) entre cenários
-- Testes de hipótese pareados (Wilcoxon / t-pareado via `scipy.stats`)
-- Mapeamento espacial das diferenças (ΔPTh por célula)
-- Associação local (LISA) para identificar manchas de degradação — exigirá `esda` (PySAL) ou implementação manual
-
-**2. `inequality`** — Análise de desigualdade socioeconômica.
-- **Regressão linear MQO** com `statsmodels` (não `sklearn.linear_model`) — porque `statsmodels` fornece p-valores, intervalos de confiança, R² ajustado e diagnóstico de resíduos, essenciais para validar a significância estatística das variáveis socioeconômicas
-- **Clusterização socioespacial** via `sklearn.cluster.AgglomerativeClustering` com restrição de contiguidade (matriz de adjacência espacial Queen/Rook) — porque é o método mais adequado para produzir **regiões contíguas e internamente homogêneas**, ao contrário de K-Means que ignora a vizinhança geográfica
-- PCA exploratório para redução de dimensionalidade (`sklearn.decomposition.PCA`)
+> **Fora do escopo:** as análises `comparison` e `inequality` não serão implementadas como
+> módulos da lib. Elas demandam decisões metodológicas específicas de cada estudo (testes
+> estatísticos, modelagem de regressão, agrupamentos) que não fazem parte do núcleo da
+> `ambx`. A lib já entrega os blocos para calcular **tempos típicos e condicionados**
+> (`routing` + `penalties` + `indicators`); a partir desses resultados (ex.: `PTh`, `Índice G`
+> e `F15` para cada cenário), cada usuário conduz as análises comparativa e de desigualdade
+> com as ferramentas de sua preferência (`statsmodels`, `esda`/PySAL, `scikit-learn`, etc.).
 
 ---
 
