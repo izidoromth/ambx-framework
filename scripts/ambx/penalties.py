@@ -17,9 +17,11 @@ from typing import Any, Callable, Literal
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio
 from rasterio.sample import sample_gen
 from rasterio.warp import transform as rio_transform
+from shapely.geometry import LineString, Point
 
 from ambx.environment import EnvironmentLayers, RasterLayer, VectorLayer
 
@@ -67,9 +69,16 @@ class PenaltyRule:
         Estratégia de amostragem do raster (ignorado para camadas vetoriais):
         - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
         - ``"segments"``: segmenta a aresta em ``n_samples`` pontos
-          equidistantes e usa o maior fator entre eles (pior caso)
+          equidistantes ao longo do trecho
     n_samples : int, default 4
         Número de pontos por aresta quando ``sampling="segments"``.
+    aggregation : Literal["max", "mean"], default "max"
+        Como combinar os fatores dos pontos/polígonos de uma aresta:
+        - ``"max"``: pior caso — aplica o maior fator ao comprimento todo.
+        - ``"mean"``: média ponderada pelo comprimento — cada trecho paga seu
+          próprio fator (mais justo para arestas longas/heterogêneas). Em
+          trechos onde 2+ polígonos se sobrepõem, aplica-se o **maior fator**
+          entre eles (semântica ``max`` no trecho sobreposto).
     """
 
     layer_name: str
@@ -78,6 +87,7 @@ class PenaltyRule:
     penalty_fn: Callable[[Any], float] = field(default=lambda v: 1.0)
     sampling: Literal["midpoint", "segments"] = "midpoint"
     n_samples: int = 4
+    aggregation: Literal["max", "mean"] = "max"
 
 
 # ---------------------------------------------------------------------------
@@ -85,18 +95,109 @@ class PenaltyRule:
 # ---------------------------------------------------------------------------
 
 
+def _sum_line_lengths(geom) -> float:
+    """Soma o comprimento das partes do tipo linha de uma geometria.
+
+    A interseção entre uma ``LineString`` e um polígono pode resultar em
+    ``LineString``, ``MultiLineString`` ou ``GeometryCollection``. Partes do
+    tipo ``Point``/``Polygon`` (casos degenerados) têm comprimento 0 e são
+    ignoradas.
+    """
+    if geom is None or geom.is_empty:
+        return 0.0
+    gtype = geom.geom_type
+    if gtype == "LineString":
+        return geom.length
+    if gtype == "MultiLineString":
+        return sum(g.length for g in geom.geoms)
+    if gtype == "GeometryCollection":
+        return sum(
+            _sum_line_lengths(g)
+            for g in geom.geoms
+            if g.geom_type in ("LineString", "MultiLineString")
+        )
+    return 0.0
+
+
+def _segment_factors(
+    edge_geom,
+    polygons: gpd.GeoDataFrame,
+    value_column: str,
+    penalty_fn,
+):
+    """Particiona uma aresta em trechos cobertos por polígonos.
+
+    A aresta é subdividida nos pontos onde as bordas dos polígonos a cruzam.
+    Cada sub-segmento recebe o **maior fator** entre os polígonos que o cobrem
+    (semântica ``max`` no trecho sobreposto, sob o ``mean`` por comprimento).
+
+    Retorna ``(segs, interdict)``:
+    - ``segs``: lista de ``(comprimento, fator)`` dos trechos **dentro** de
+      pelo menos um polígono (trechos fora ficam de fora — fator 1.0 é tratado
+      pelo chamador).
+    - ``interdict``: ``True`` se algum trecho tem fator ``inf``.
+    """
+    if polygons is None or polygons.empty:
+        return [], False
+
+    # Pontos de corte ao longo da aresta: extremos + interseções com as
+    # bordas dos polígonos. Todos em parâmetro normalizado (0..1).
+    cut_params = [0.0, 1.0]
+    for _, row in polygons.iterrows():
+        inter = edge_geom.intersection(row.geometry.boundary)
+        for geom in inter.geoms if inter.geom_type == "GeometryCollection" else [inter]:
+            if geom.geom_type == "Point":
+                cut_params.append(edge_geom.project(geom, normalized=True))
+            elif geom.geom_type in ("MultiPoint",):
+                cut_params.extend(
+                    edge_geom.project(g, normalized=True) for g in geom.geoms
+                )
+    cut_params = sorted(set(round(p, 12) for p in cut_params))
+
+    segs = []
+    interdict = False
+    for i in range(len(cut_params) - 1):
+        s0, s1 = cut_params[i], cut_params[i + 1]
+        if s1 - s0 < 1e-12:
+            continue
+        mid = (s0 + s1) / 2.0
+        mid_pt = edge_geom.interpolate(mid, normalized=True)
+        length = (s1 - s0) * edge_geom.length
+
+        fac = None
+        for _, row in polygons.iterrows():
+            if not row.geometry.covers(mid_pt):
+                continue
+            val = row[value_column]
+            f = penalty_fn(val) if pd.notna(val) else 1.0
+            if np.isinf(f):
+                interdict = True
+            if fac is None or f > fac:
+                fac = f
+        if fac is None:
+            continue  # trecho fora de qualquer polígono → fator 1 (chamador)
+        segs.append((length, fac))
+
+    return segs, interdict
+
+
 def apply_vector_penalty(
     edges_gdf: gpd.GeoDataFrame,
     vector_layer: VectorLayer,
     rule: PenaltyRule,
+    aggregation: Literal["max", "mean"] = "max",
 ) -> gpd.GeoDataFrame:
     """Aplica penalidade vetorial sobre as arestas da rede.
 
     Para cada aresta, identifica os polígonos da camada vetorial que
-    a intersectam via ``gpd.sjoin``. O valor da coluna de penalidade
-    (``vector_layer.value_column``) de cada polígono é passado para
-    ``rule.penalty_fn``, e o **maior fator** (pior caso) é aplicado
-    ao campo de custo.
+    a intersectam via ``gpd.sjoin``.
+
+    - ``aggregation="max"`` (padrão): o **maior fator** (pior caso) entre os
+      polígonos intersectantes é aplicado ao campo de custo.
+    - ``aggregation="mean"``: o fator da aresta é a **média ponderada pelo
+      comprimento** dos trechos de interseção. Quando 2+ polígonos se
+      sobrepõem num mesmo trecho, aplica-se o **maior fator** entre eles
+      (mesmo critério conservador do ``max`` no trecho sobreposto).
 
     Arestas sem interseção permanecem com o custo original (fator 1.0).
 
@@ -110,6 +211,8 @@ def apply_vector_penalty(
         Deve ter ``value_column`` definido.
     rule : PenaltyRule
         Regra de penalização com ``penalty_fn``.
+    aggregation : Literal["max", "mean"], default "max"
+        Estratégia de agregação dos fatores sobre a aresta.
 
     Returns
     -------
@@ -119,45 +222,90 @@ def apply_vector_penalty(
     Raises
     ------
     ValueError
-        Se ``vector_layer.value_column`` não estiver definido.
+        Se ``vector_layer.value_column`` não estiver definido ou
+        se ``aggregation`` for inválido.
     """
     if vector_layer.value_column is None:
         raise ValueError(
             f"VectorLayer '{vector_layer.name}' não possui value_column. "
             "Defina value_column ao carregar a camada."
         )
+    if aggregation not in ("max", "mean"):
+        raise ValueError(f"Agregação inválida: {aggregation}")
 
     if vector_layer.gdf.crs != edges_gdf.crs:
         vector_layer.gdf.to_crs(edges_gdf.crs, inplace=True)
 
-    # Interseção espacial: cada aresta pode se ligar a múltiplos polígonos
-    joined = gpd.sjoin(
-        edges_gdf,
-        vector_layer.gdf[[vector_layer.value_column, "geometry"]],
-        how="left",
-        predicate="intersects",
-    )
-
-    # Para cada aresta, calcula o maior fator entre todos os polígonos
-    # que a intersectam. Arestas sem interseção ficam com fator 1.0.
     val_col = vector_layer.value_column
 
-    # Fator por aresta: máximo da penalty_fn aplicada aos valores
-    # dos polígonos que intersectam
-    def _max_factor(group):
-        values = group[val_col].dropna()
-        if len(values) == 0:
-            return 1.0
-        return max(rule.penalty_fn(v) for v in values)
+    if aggregation == "max":
+        # Interseção espacial: cada aresta pode se ligar a múltiplos polígonos
+        joined = gpd.sjoin(
+            edges_gdf,
+            vector_layer.gdf[[val_col, "geometry"]],
+            how="left",
+            predicate="intersects",
+        )
 
-    factors = joined.groupby(level=0).apply(_max_factor)
+        # Fator por aresta: máximo da penalty_fn aplicada aos valores
+        # dos polígonos que intersectam. Arestas sem interseção ficam 1.0.
+        def _max_factor(group):
+            values = group[val_col].dropna()
+            if len(values) == 0:
+                return 1.0
+            return max(rule.penalty_fn(v) for v in values)
 
-    # Garante que todas as arestas originais têm fator
-    factors = factors.reindex(edges_gdf.index, fill_value=1.0)
+        factors = joined.groupby(level=0).apply(_max_factor)
+        factors = factors.reindex(edges_gdf.index, fill_value=1.0)
+        factor_values = factors.values
+    else:
+        # Média ponderada pelo comprimento dos trechos de interseção.
+        # Um sjoin é usado apenas para descobrir, por aresta, quais polígonos
+        # a intersectam; o particionamento real é feito por _segment_factors.
+        poly_gdf = vector_layer.gdf[[val_col, "geometry"]].copy()
+        poly_gdf = poly_gdf.reset_index(drop=True)
+        poly_gdf["_poly_id"] = np.arange(len(poly_gdf), dtype=int)
 
-    # Aplica os fatores ao campo de custo
+        joined = gpd.sjoin(
+            edges_gdf[["geometry"]],
+            poly_gdf,
+            how="left",
+            predicate="intersects",
+        )
+
+        # Agrupa os ids dos polígonos intersectantes por aresta (index do joined
+        # é o da aresta; polos sem interseção têm _poly_id == NaN).
+        polys_by_edge: dict[int, list[int]] = {}
+        for aresta_idx, row in joined.iterrows():
+            pid = row["_poly_id"]
+            if pd.notna(pid):
+                polys_by_edge.setdefault(aresta_idx, []).append(int(pid))
+
+        factor_values = np.ones(len(edges_gdf), dtype=float)
+        for i, edge_geom in enumerate(edges_gdf.geometry):
+            edge_orig_idx = edges_gdf.index[i]
+            poly_idxs = polys_by_edge.get(edge_orig_idx, [])
+            if not poly_idxs:
+                factor_values[i] = 1.0
+                continue
+            polys = poly_gdf[poly_gdf["_poly_id"].isin(poly_idxs)]
+            segs, interdict = _segment_factors(
+                edge_geom, polys, val_col, rule.penalty_fn
+            )
+            if interdict:
+                factor_values[i] = float("inf")
+                continue
+            if not segs:
+                factor_values[i] = 1.0
+                continue
+            L_total = edge_geom.length
+            inside_w = sum(L * f for L, f in segs)
+            inside_l = sum(L for L, _ in segs)
+            outside = L_total - inside_l
+            factor_values[i] = (inside_w + outside * 1.0) / L_total
+
     result = edges_gdf.copy()
-    result[rule.weight_field] = result[rule.weight_field] * factors.values
+    result[rule.weight_field] = result[rule.weight_field] * factor_values
 
     return result
 
@@ -173,6 +321,7 @@ def apply_raster_penalty(
     rule: PenaltyRule,
     sampling: Literal["midpoint", "segments"] = "midpoint",
     n_samples: int = 4,
+    aggregation: Literal["max", "mean"] = "max",
 ) -> gpd.GeoDataFrame:
     """Aplica penalidade raster sobre as arestas da rede.
 
@@ -181,7 +330,7 @@ def apply_raster_penalty(
     ``rule.penalty_fn`` para obter o fator multiplicador.
 
     Arestas cujo ponto de amostragem cai em pixel nodata
-    permanecem com o custo original (fator 1.0).
+    permanecem com custo original (fator 1.0) naquele ponto.
 
     Parameters
     ----------
@@ -196,11 +345,15 @@ def apply_raster_penalty(
         Estratégia de amostragem:
         - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
         - ``"segments"``: segmenta a aresta em ``n_samples`` pontos equidistantes
-          (incluindo os extremos) e usa o maior fator entre eles (pior caso)
+          (incluindo os extremos)
     n_samples : int, default 4
         Número de pontos por aresta quando ``sampling="segments"``.
-        A cada ponto amostra-se o raster, aplica-se ``penalty_fn`` e o fator
-        final da aresta é o **máximo** (pior caso) entre todos os pontos.
+    aggregation : Literal["max", "mean"], default "max"
+        Como combinar os fatores ao longo da aresta:
+        - ``"max"``: pior caso — usa o maior fator entre os pontos.
+        - ``"mean"``: média ponderada pelo comprimento (regra do trapézio) —
+          cada trecho paga seu próprio fator, mais justo para arestas longas
+          que atravessam zonas heterogêneas.
 
     Returns
     -------
@@ -210,7 +363,7 @@ def apply_raster_penalty(
     Raises
     ------
     ValueError
-        Se ``sampling`` for inválido.
+        Se ``sampling`` ou ``aggregation`` forem inválidos.
     """
     wf = rule.weight_field or "travel_time"
 
@@ -284,26 +437,36 @@ def apply_raster_penalty(
         ], dtype=float)
 
     # --- Aplicar penalty_fn ---
-    # Cada ponto gera um fator; para arestas com múltiplos pontos
-    # (ex.: "segments"), agrega pelo MAIOR fator (pior caso).
+    # Cada ponto gera um fator; a forma como os fatores dos pontos de uma
+    # mesma aresta são combinados depende de ``aggregation``.
+    if aggregation not in ("max", "mean"):
+        raise ValueError(f"Agregação inválida: {aggregation}")
+
     per_point_factors = np.where(
         np.isnan(values),
         1.0,
         [rule.penalty_fn(v) for v in values],
     )
 
-    # Mapeia o fator de cada ponto de volta para a aresta e agrega.
-    factors_by_edge: dict[int, float] = {}
+    # Agrupa os fatores de cada aresta (na ordem em que os pontos aparecem).
+    edge_factors: dict[int, list[float]] = {}
     for edge_idx, factor in zip(point_to_edge, per_point_factors):
-        cur = factors_by_edge.get(edge_idx, 0.0)
-        # Pior caso: mantém o maior fator entre os pontos da aresta
-        if cur == 0.0 or factor > cur:
-            factors_by_edge[edge_idx] = factor
+        edge_factors.setdefault(edge_idx, []).append(float(factor))
 
-    factors = np.array(
-        [factors_by_edge.get(i, 1.0) for i in range(len(edges_gdf))],
-        dtype=float,
-    )
+    factors = np.ones(len(edges_gdf), dtype=float)
+    for edge_idx, fs in edge_factors.items():
+        if aggregation == "max":
+            factors[edge_idx] = max(fs)
+        else:
+            # Média ponderada pelo comprimento via regra do trapézio.
+            # Com n pontos equidistantes (incluindo os extremos), o ponto
+            # médio de cada fatia é ponderado e os extremos têm peso 0.5.
+            n = len(fs)
+            if n == 1:
+                factors[edge_idx] = fs[0]
+            else:
+                total = fs[0] + fs[-1] + 2.0 * sum(fs[1:-1])
+                factors[edge_idx] = total / (2.0 * (n - 1))
 
     result = edges_gdf.copy()
     result[wf] = result[wf] * factors
@@ -377,7 +540,12 @@ def compose_penalties(
 
             # Garante que a regra use o weight_field correto
             rule.weight_field = wf
-            result = apply_vector_penalty(result, layer, rule)
+            result = apply_vector_penalty(
+                result,
+                layer,
+                rule,
+                aggregation=rule.aggregation,
+            )
 
         elif rule.layer_type == "raster":
             matching = [r for r in env.rasters if r.name == rule.layer_name]
@@ -396,6 +564,7 @@ def compose_penalties(
                 rule,
                 sampling=rule.sampling,
                 n_samples=rule.n_samples,
+                aggregation=rule.aggregation,
             )
 
         else:
