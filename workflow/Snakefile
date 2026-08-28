@@ -1,0 +1,80 @@
+configfile: "workflow/config/curitiba_lst.yaml"
+
+OUT_DIR = config["output_dir"]
+
+rule all:
+    input:
+        f"{OUT_DIR}/indicators.json",
+        f"{OUT_DIR}/comparison.parquet",
+        f"{OUT_DIR}/figures/comparison_maps.png",
+        f"{OUT_DIR}/figures/delta_time_histogram.png"
+
+rule prepare:
+    output:
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
+        pois=f"{OUT_DIR}/prepared/pois.parquet",
+        pois_snapped=f"{OUT_DIR}/prepared/pois_snapped.parquet",
+        snapped=f"{OUT_DIR}/prepared/snapped.parquet",
+        graph=f"{OUT_DIR}/prepared/graph.pkl",
+        edges=f"{OUT_DIR}/prepared/edges.parquet"
+    params:
+        cfg="workflow/config/curitiba_lst.yaml"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py prepare --config {params.cfg} "
+        "--grid {output.grid} --pois {output.pois} --pois-snapped {output.pois_snapped} "
+        "--snapped {output.snapped} --graph {output.graph} --edges {output.edges}"
+
+rule route_typical:
+    input:
+        snapped=f"{OUT_DIR}/prepared/snapped.parquet",
+        pois=f"{OUT_DIR}/prepared/pois_snapped.parquet",
+        graph=f"{OUT_DIR}/prepared/graph.pkl"
+    output: f"{OUT_DIR}/matrices/matrix_typical.parquet"
+    params: cfg="workflow/config/curitiba_lst.yaml"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py route --scenario typical --config {params.cfg} "
+        "--snapped {input.snapped} --pois {input.pois} --graph {input.graph} --output {output}"
+
+rule route_conditioned:
+    input:
+        snapped=f"{OUT_DIR}/prepared/snapped.parquet",
+        pois=f"{OUT_DIR}/prepared/pois_snapped.parquet",
+        graph=f"{OUT_DIR}/prepared/graph.pkl",
+        edges=f"{OUT_DIR}/prepared/edges.parquet",
+        raster=lambda wildcards: config["lst_raster"]
+    output: f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
+    params: cfg="workflow/config/curitiba_lst.yaml"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py route --scenario conditioned --config {params.cfg} "
+        "--snapped {input.snapped} --pois {input.pois} --graph {input.graph} "
+        "--edges {input.edges} --raster {input.raster} --output {output}"
+
+rule indicators:
+    input:
+        typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
+        cond=f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
+    output: f"{OUT_DIR}/indicators.json"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py indicators --typical {input.typ} "
+        "--conditioned {input.cond} --output {output}"
+
+rule comparison:
+    input:
+        typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
+        cond=f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
+    output: f"{OUT_DIR}/comparison.parquet"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py comparison --typical {input.typ} "
+        "--conditioned {input.cond} --output {output}"
+
+rule figures:
+    input:
+        comparison=f"{OUT_DIR}/comparison.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet"
+    output:
+        comparison=f"{OUT_DIR}/figures/comparison_maps.png",
+        histogram=f"{OUT_DIR}/figures/delta_time_histogram.png"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py figures --comparison {input.comparison} "
+        "--grid {input.grid} --comparison-figure {output.comparison} "
+        "--histogram {output.histogram}"

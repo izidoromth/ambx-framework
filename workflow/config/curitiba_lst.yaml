@@ -1,0 +1,11 @@
+location: "Curitiba, Parana, Brazil"
+grid_format: hexagon
+cell_size: 200
+poi_buffer: 2000
+network_type: walk
+walk_speed_kph: 5.0
+max_snap_distance: 1000
+k_nearest: 3
+n_jobs: 8
+lst_raster: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+output_dir: results/curitiba_lst

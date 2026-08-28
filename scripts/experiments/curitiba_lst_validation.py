@@ -51,7 +51,7 @@ GRID_FORMAT = GridFormat.HEXAGON
 CELL_SIZE = 200           # m (raio do hexágono)
 POI_BUFFER = 2000         # m
 NETWORK_TYPE = "walk"
-WALK_SPEED_KPH = 5.0
+SPEED_HPH = 5.0
 MAX_SNAP_DIST = 1000      # m
 K_NEAREST = 3
 N_JOBS = 8
@@ -69,7 +69,7 @@ print(f"{'='*60}")
 print(f"  ambx — Pipeline Curitiba com Penalização LST")
 print(f"{'='*60}")
 print(f"  Malha: {GRID_FORMAT.value}, {CELL_SIZE}m")
-print(f"  Rede: {NETWORK_TYPE} ({WALK_SPEED_KPH} km/h)")
+print(f"  Rede: {NETWORK_TYPE} ({SPEED_HPH} km/h)")
 print(f"  K vizinhos: {K_NEAREST}  |  Workers: {N_JOBS}")
 print(f"  Penalidade LST: 20°C→{lst_penalty(20)}  28°C→{lst_penalty(28)}  "
       f"32°C→{lst_penalty(32)}  37°C→{lst_penalty(37)}")
@@ -101,7 +101,7 @@ print("[1c] Rede Viária...", end=" ", flush=True)
 t0 = time.time()
 graph = get_network(LOCATION, network_type=NETWORK_TYPE)
 graph = project_network(graph)
-graph = add_travel_time(graph, speed_kph=WALK_SPEED_KPH)
+graph = add_travel_time(graph, speed_kph=SPEED_HPH)
 edges = get_graph_edges(graph)
 print(f"{graph.number_of_nodes()} nós, {graph.number_of_edges()} arestas  "
       f"({time.time()-t0:.1f}s)")
@@ -126,7 +126,7 @@ print(f"     POIs snapped: {len(pois_snapped)}/{len(pois)}")
 
 t0 = time.time()
 matrix_typ = routing_matrix(snapped, pois_snapped, graph,
-                            k_nearest=K_NEAREST, speed_kph=WALK_SPEED_KPH,
+                            k_nearest=K_NEAREST, speed_kph=SPEED_HPH,
                             n_jobs=N_JOBS)
 reach_typ = matrix_typ["travel_time"].notna().sum()
 tt_typ = matrix_typ.loc[matrix_typ["travel_time"].notna(), "travel_time"]
@@ -188,7 +188,7 @@ print(f"     Fator médio: {factors.mean():.2f}  "
 print("[5] Roteamento A* — Condicionado (LST)...")
 t0 = time.time()
 matrix_cond = routing_matrix(snapped, pois_snapped, graph_cond,
-                             k_nearest=K_NEAREST, speed_kph=WALK_SPEED_KPH,
+                             k_nearest=K_NEAREST, speed_kph=SPEED_HPH,
                              n_jobs=N_JOBS)
 reach_cond = matrix_cond["travel_time"].notna().sum()
 tt_cond = matrix_cond.loc[matrix_cond["travel_time"].notna(), "travel_time"]
