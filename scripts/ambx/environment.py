@@ -669,7 +669,7 @@ def build_environment(
     raster_paths: list[str | Path] | None = None,
     vector_paths: list[str | Path] | None = None,
     vector_gdfs: list[tuple[gpd.GeoDataFrame, str]] | None = None,
-    raster_value_columns: dict[str, str] | None = None,
+    vector_value_columns: dict[str, str] | None = None,
 ) -> EnvironmentLayers:
     """
     Constrói o container ``EnvironmentLayers`` para uma área de
@@ -692,10 +692,10 @@ def build_environment(
     vector_gdfs : list[tuple[gpd.GeoDataFrame, str]] | None, default None
         Lista de tuplas ``(gdf, name)`` com GeoDataFrames já em
         memória para carregar como camadas vetoriais.
-    raster_value_columns : dict[str, str] | None, default None
-        Mapeamento ``{caminho_do_raster: nome_da_coluna}`` para
-        indicar qual coluna usar como valor de penalidade em
-        camadas vetoriais. Se não informado, assume penalidade
+    vector_value_columns : dict[str, str] | None, default None
+        Mapeamento ``{caminho_da_camada: nome_da_coluna}`` para
+        indicar qual coluna usar como valor de penalização nas
+        camadas vetoriais. Se não informado, assume penalização
         uniforme para as camadas vetoriais.
 
     Returns
@@ -740,7 +740,7 @@ def build_environment(
 
     # Carregar vetoriais de arquivos
     if vector_paths:
-        vcols = raster_value_columns or {}
+        vcols = vector_value_columns or {}
         for vpath in vector_paths:
             vpath_str = str(vpath)
             layer = load_vector(
