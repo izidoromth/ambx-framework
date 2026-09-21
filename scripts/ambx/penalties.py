@@ -33,7 +33,7 @@ from ambx.environment import EnvironmentLayers, RasterLayer, VectorLayer
 
 @dataclass
 class PenaltyRule:
-    """Regra de penalização para uma camada ambiental.
+    """Regra de modificação de custo para uma camada ambiental.
 
     Define **o quê**, **como** e **sobre qual campo** uma camada
     ambiental impacta os custos da rede.
@@ -88,6 +88,10 @@ class PenaltyRule:
     sampling: Literal["midpoint", "segments"] = "midpoint"
     n_samples: int = 4
     aggregation: Literal["max", "mean"] = "max"
+
+
+# Nome conceitual alternativo. PenaltyRule permanece como API compatível.
+CostModifier = PenaltyRule
 
 
 # ---------------------------------------------------------------------------
