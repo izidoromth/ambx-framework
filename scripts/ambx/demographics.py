@@ -14,7 +14,7 @@ Uso típico
 ----------
     from ambx.demographics import load_tracts, interpolate_to_grid
 
-    tracts = load_tracts("data/raw/censo_2022/censo_2022.gpkg",
+    tracts = load_tracts("data/processed/censo_2022/censo_2022.geoparquet",
                          city_codes=["4106902"])
 
     grid["populacao"] = interpolate_to_grid(

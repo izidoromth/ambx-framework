@@ -37,18 +37,21 @@ dissertacao/
 │       ├── penalties.py         # Penalização ambiental de arestas
 │       ├── routing.py           # Roteamento A* com paralelismo
 │       └── indicators.py        # Indicadores PTh, Gini e F15
-│   └── extract/
-│       └── download_censo_2022.py  # EL do Censo Demográfico 2022
+│   └── etl/
+│       ├── download_censo_2022.py
+│       └── download_area_verde_curitiba.py
 ├── notebooks/
 │   ├── ambx_tests_porto_alegre.ipynb  # Testes e experimentos (POA)
 │   └── qualifying/
 │       ├── generate_simulated_flood_areas..ipynb
 │       └── generate_simulated_scenarios.ipynb
 ├── data/
-│   └── raw/
-│       ├── censo_2022/          # Censo Demográfico 2022 (GeoParquet)
-│       ├── curitiba/            # Camadas ambientais de Curitiba
-│       └── porto_alegre/        # Camadas ambientais de Porto Alegre
+│   ├── raw/
+│       ├── curitiba/            # Insumos brutos de Curitiba
+│       └── porto_alegre/        # Insumos brutos de Porto Alegre
+│   └── processed/
+│       ├── censo_2022/           # Censo consolidado em GeoParquet
+│       └── curitiba/             # Camadas derivadas e convertidas
 ├── cache/                      # Cache de requisições OSM (JSON)
 ├── docs/
 │   └── qualifying/             # Documento de qualificação (LaTeX)
@@ -70,6 +73,13 @@ dissertacao/
 ```
 
 ---
+
+## Organização dos dados
+
+- `data/raw/`: arquivos originais ou recebidos diretamente das fontes;
+- `data/processed/`: produtos derivados pelos ETLs, consolidados ou convertidos;
+- `results/`: matrizes, indicadores, comparações e figuras do workflow;
+- `scripts/etl/cache_*`: caches locais usados para reconstruir produtos processados.
 
 ## Fluxo Metodológico
 

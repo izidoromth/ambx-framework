@@ -5,11 +5,11 @@ Downloads CSVs from IBGE FTP, merges all themes into a single GeoParquet
 with census tract geometries, ready for ``ambx.demographics``.
 
 Usage:
-    python scripts/extract/download_censo_2022.py
+    python scripts/etl/download_censo_2022.py
 
 Output:
-    data/raw/censo_2022/
-    ├── censo_2022.gpkg          ← single GeoParquet (all variables + geometry)
+    data/processed/censo_2022/
+    ├── censo_2022.geoparquet   ← single GeoParquet (all variables + geometry)
     └── metadados.json           ← variable dictionary
 """
 
@@ -30,7 +30,7 @@ import requests
 
 URL_BASE = "https://ftp.ibge.gov.br/Censos/Censo_Demografico_2022"
 PROJ_ROOT = Path(__file__).resolve().parents[2]
-DATA_RAW = PROJ_ROOT / "data" / "raw" / "censo_2022"
+DATA_PROCESSED = PROJ_ROOT / "data" / "processed" / "censo_2022"
 CACHE = Path(__file__).resolve().parent / "cache_ibge"
 
 TRACT_ID = "CD_SETOR"
@@ -171,7 +171,7 @@ def main():
     print("  Download, merge and save single GeoParquet with geometry")
     print("=" * 60)
 
-    DATA_RAW.mkdir(parents=True, exist_ok=True)
+    DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
     CACHE.mkdir(exist_ok=True)
 
     # 1. Dictionaries
@@ -250,7 +250,7 @@ def main():
     print(f"{len(v_cols)} columns converted to float64")
 
     # 6. Save GeoParquet
-    out = DATA_RAW / "censo_2022.geoparquet"
+    out = DATA_PROCESSED / "censo_2022.geoparquet"
     print(f"\n[Saving] {out} ...", end=" ", flush=True)
     gdf.to_parquet(out, index=False)
     size = out.stat().st_size / 1e6
@@ -262,15 +262,15 @@ def main():
     meta["census"] = _load_metadata(dic_census, "Dicionário não PCT")
     meta["basico"] = _load_metadata(dic_census, "Dicionário Básico")
     meta["income"] = _load_metadata(dic_income, "Dicionário Renda Responsável")
-    with open(DATA_RAW / "metadados.json", "w", encoding="utf-8") as f:
+    with open(DATA_PROCESSED / "metadados.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
     print("ok")
 
     # 8. Summary
     print(f"\n{'=' * 60}")
     print("  Done!")
-    print(f"  Folder: {DATA_RAW}")
-    print(f"    censo_2022.gpkg  ({size:.1f} MB, {len(gdf.columns)} columns)")
+    print(f"  Folder: {DATA_PROCESSED}")
+    print(f"    censo_2022.geoparquet  ({size:.1f} MB, {len(gdf.columns)} columns)")
     print(f"    metadados.json")
     print(f"  Cache: {CACHE}")
     print(f"{'=' * 60}")

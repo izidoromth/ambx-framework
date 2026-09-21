@@ -219,7 +219,10 @@ def load_vector(
     if name is None:
         name = path.stem
 
-    gdf = gpd.read_file(path)
+    if path.suffix.lower() in {".parquet", ".geoparquet"}:
+        gdf = gpd.read_parquet(path)
+    else:
+        gdf = gpd.read_file(path)
 
     if gdf.empty:
         raise ValueError(f"Arquivo vetorial vazio ou sem feições: {path}")
