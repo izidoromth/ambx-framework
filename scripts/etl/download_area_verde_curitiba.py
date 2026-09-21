@@ -56,6 +56,9 @@ def main() -> None:
     source = shapefiles[0]
     print(f"Lendo: {source}")
     gdf = gpd.read_file(source)
+    # Valor unitário: a intensidade da atenuação é definida pela função da
+    # regra; a proporção coberta da aresta é calculada por aggregation=mean.
+    gdf["green_presence"] = 1
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     gdf.to_parquet(OUTPUT, index=False, compression="zstd")
 
