@@ -58,15 +58,26 @@ def route(a):
     c = cfg(a.config)
     with open(a.graph, "rb") as f: graph = pickle.load(f)
     snapped = gpd.read_parquet(a.snapped); pois = gpd.read_parquet(a.pois)
-    if a.scenario == "conditioned":
+    if a.scenario != "typical":
         edges = gpd.read_parquet(a.edges)
         grid = gpd.read_parquet(str(Path(a.snapped).parent / "grid.parquet"))
-        rules_cfg = c.get("scenarios", {}).get("conditioned", {}).get("penalties", [])
+        scenario_cfg = c.get("scenarios", {}).get(a.scenario, {})
+        rules_cfg = scenario_cfg.get("penalties", [])
         if not rules_cfg:
-            raise ValueError("O cenário condicionado precisa declarar ao menos uma penalização")
+            raise ValueError(f"O cenário '{a.scenario}' precisa declarar penalizações")
         raster_paths = [r["input"] for r in rules_cfg if r.get("input_type", "raster") == "raster"]
         vector_paths = [r["input"] for r in rules_cfg if r.get("input_type") == "vector"]
-        env = build_environment(grid, raster_paths=raster_paths, vector_paths=vector_paths)
+        vector_value_columns = {
+            r["input"]: r["value_field"]
+            for r in rules_cfg
+            if r.get("input_type") == "vector" and r.get("value_field")
+        }
+        env = build_environment(
+            grid,
+            raster_paths=raster_paths,
+            vector_paths=vector_paths,
+            vector_value_columns=vector_value_columns,
+        )
         rules = [PenaltyRule(
             r.get("layer", Path(r["input"]).stem),
             r.get("input_type", "raster"),

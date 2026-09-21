@@ -12,6 +12,40 @@ output_dir: results/porto_alegre
 
 scenarios:
   typical: {}
-  conditioned:
-    enabled: false
-    penalties: []
+
+  inundacao:
+    penalties:
+      - name: inundacao
+        function: porto_alegre_inundacao
+        layer: inundacao_cprm
+        input: data/raw/porto_alegre/inundacao_cprm.geojson
+        input_type: vector
+        value_field: classe
+        aggregation: mean
+
+  movimento_massa:
+    penalties:
+      - name: movimento_massa
+        function: porto_alegre_movimento_massa
+        layer: movimento_massa_cprm
+        input: data/raw/porto_alegre/movimento_massa_cprm.geojson
+        input_type: vector
+        value_field: classe
+        aggregation: mean
+
+  combinado:
+    penalties:
+      - name: inundacao
+        function: porto_alegre_inundacao
+        layer: inundacao_cprm
+        input: data/raw/porto_alegre/inundacao_cprm.geojson
+        input_type: vector
+        value_field: classe
+        aggregation: mean
+      - name: movimento_massa
+        function: porto_alegre_movimento_massa
+        layer: movimento_massa_cprm
+        input: data/raw/porto_alegre/movimento_massa_cprm.geojson
+        input_type: vector
+        value_field: classe
+        aggregation: mean

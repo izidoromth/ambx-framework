@@ -12,11 +12,24 @@ output_dir: results/curitiba
 
 scenarios:
   typical: {}
-  conditioned:
-    enabled: true
+  lst:
     penalties:
       - name: lst
         function: curitiba_lst
         layer: LST_Anual_2026_221077_Mediana
         input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
         input_type: raster
+  lst_green:
+    penalties:
+      - name: lst
+        function: curitiba_lst
+        layer: LST_Anual_2026_221077_Mediana
+        input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+        input_type: raster
+      - name: area_verde
+        function: curitiba_green_modifier
+        layer: area_verde_2019
+        input: data/processed/curitiba/area_verde_2019.geoparquet
+        input_type: vector
+        value_field: green_presence
+        aggregation: mean

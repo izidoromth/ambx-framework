@@ -1,0 +1,3 @@
+# Configuração-base vazia.
+# O caso de uso deve ser informado explicitamente com --configfile.
+{}

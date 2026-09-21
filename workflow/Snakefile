@@ -1,22 +1,30 @@
-configfile: "workflow/config/curitiba.yaml"
+configfile: "workflow/config/base.yaml"
 
 OUT_DIR = config["output_dir"]
 SCENARIOS = config.get("scenarios", {})
-CONDITIONED = SCENARIOS.get("conditioned", {})
-RUN_CONDITIONED = CONDITIONED.get("enabled", False)
+CONDITIONED_SCENARIOS = [s for s in SCENARIOS if s != "typical"]
 CONFIG_PATH = workflow.configfiles[0]
-PENALTIES = CONDITIONED.get("penalties", [])
+
+
+def scenario_inputs(scenario):
+    return [r["input"] for r in SCENARIOS[scenario].get("penalties", [])]
+
 
 rule all:
     input:
-        ([f"{OUT_DIR}/indicators.json",
-          f"{OUT_DIR}/comparison.parquet",
-          f"{OUT_DIR}/figures/comparison_maps.png",
-          f"{OUT_DIR}/figures/delta_time_histogram.png"]
-         if RUN_CONDITIONED else
-         [f"{OUT_DIR}/matrices/matrix_typical.parquet",
-          f"{OUT_DIR}/indicators_typical.json",
-          f"{OUT_DIR}/figures/map_typical.png"])
+        [f"{OUT_DIR}/matrices/matrix_typical.parquet",
+         f"{OUT_DIR}/figures/map_typical.png"] + [
+            output
+            for scenario in CONDITIONED_SCENARIOS
+            for output in [
+                f"{OUT_DIR}/matrices/matrix_{scenario}.parquet",
+                f"{OUT_DIR}/indicators_{scenario}.json",
+                f"{OUT_DIR}/comparison_{scenario}.parquet",
+                f"{OUT_DIR}/figures/comparison_{scenario}.png",
+                f"{OUT_DIR}/figures/delta_time_{scenario}_histogram.png",
+            ]
+        ]
+
 
 rule prepare:
     output:
@@ -33,6 +41,7 @@ rule prepare:
         "--grid {output.grid} --pois {output.pois} --pois-snapped {output.pois_snapped} "
         "--snapped {output.snapped} --graph {output.graph} --edges {output.edges}"
 
+
 rule route_typical:
     input:
         snapped=f"{OUT_DIR}/prepared/snapped.parquet",
@@ -44,66 +53,68 @@ rule route_typical:
         "python3 workflow/scripts/ambx_stage.py route --scenario typical --config {params.cfg} "
         "--snapped {input.snapped} --pois {input.pois} --graph {input.graph} --output {output}"
 
-if RUN_CONDITIONED:
-    rule route_conditioned:
-        input:
-            snapped=f"{OUT_DIR}/prepared/snapped.parquet",
-            pois=f"{OUT_DIR}/prepared/pois_snapped.parquet",
-            graph=f"{OUT_DIR}/prepared/graph.pkl",
-            edges=f"{OUT_DIR}/prepared/edges.parquet",
-            penalty_inputs=lambda wildcards: [r["input"] for r in PENALTIES]
-        output: f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
-        params: cfg=CONFIG_PATH
-        shell:
-            "python3 workflow/scripts/ambx_stage.py route --scenario conditioned --config {params.cfg} "
-            "--snapped {input.snapped} --pois {input.pois} --graph {input.graph} "
-            "--edges {input.edges} --output {output}"
 
-if RUN_CONDITIONED:
-    rule indicators:
-        input:
-            typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
-            cond=f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
-        output: f"{OUT_DIR}/indicators.json"
-        shell:
-            "python3 workflow/scripts/ambx_stage.py indicators --typical {input.typ} "
-            "--conditioned {input.cond} --output {output}"
-else:
-    rule indicators_typical:
-        input: typ=f"{OUT_DIR}/matrices/matrix_typical.parquet"
-        output: f"{OUT_DIR}/indicators_typical.json"
-        shell:
-            "python3 workflow/scripts/ambx_stage.py indicators --typical {input.typ} "
-            "--output {output}"
+rule route_conditioned:
+    input:
+        snapped=f"{OUT_DIR}/prepared/snapped.parquet",
+        pois=f"{OUT_DIR}/prepared/pois_snapped.parquet",
+        graph=f"{OUT_DIR}/prepared/graph.pkl",
+        edges=f"{OUT_DIR}/prepared/edges.parquet",
+        penalty_inputs=lambda wildcards: scenario_inputs(wildcards.scenario)
+    output: f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
+    params: cfg=CONFIG_PATH
+    wildcard_constraints:
+        scenario="|".join(CONDITIONED_SCENARIOS)
+    shell:
+        "python3 workflow/scripts/ambx_stage.py route --scenario {wildcards.scenario} "
+        "--config {params.cfg} --snapped {input.snapped} --pois {input.pois} "
+        "--graph {input.graph} --edges {input.edges} --output {output}"
 
-if RUN_CONDITIONED:
-    rule comparison:
-        input:
-            typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
-            cond=f"{OUT_DIR}/matrices/matrix_conditioned.parquet"
-        output: f"{OUT_DIR}/comparison.parquet"
-        shell:
-            "python3 workflow/scripts/ambx_stage.py comparison --typical {input.typ} "
-            "--conditioned {input.cond} --output {output}"
 
-if RUN_CONDITIONED:
-    rule figures:
-        input:
-            comparison=f"{OUT_DIR}/comparison.parquet",
-            grid=f"{OUT_DIR}/prepared/grid.parquet"
-        output:
-            comparison=f"{OUT_DIR}/figures/comparison_maps.png",
-            histogram=f"{OUT_DIR}/figures/delta_time_histogram.png"
-        shell:
-            "python3 workflow/scripts/ambx_stage.py figures --comparison {input.comparison} "
-            "--grid {input.grid} --comparison-figure {output.comparison} "
-            "--histogram {output.histogram}"
-else:
-    rule figures_typical:
-        input:
-            matrix=f"{OUT_DIR}/matrices/matrix_typical.parquet",
-            grid=f"{OUT_DIR}/prepared/grid.parquet"
-        output: f"{OUT_DIR}/figures/map_typical.png"
-        shell:
-            "python3 workflow/scripts/ambx_stage.py figure-typical "
-            "--matrix {input.matrix} --grid {input.grid} --output {output}"
+rule indicators:
+    input:
+        typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
+        cond=f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
+    output: f"{OUT_DIR}/indicators_{{scenario}}.json"
+    wildcard_constraints:
+        scenario="|".join(CONDITIONED_SCENARIOS)
+    shell:
+        "python3 workflow/scripts/ambx_stage.py indicators --typical {input.typ} "
+        "--conditioned {input.cond} --output {output}"
+
+
+rule comparison:
+    input:
+        typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
+        cond=f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
+    output: f"{OUT_DIR}/comparison_{{scenario}}.parquet"
+    wildcard_constraints:
+        scenario="|".join(CONDITIONED_SCENARIOS)
+    shell:
+        "python3 workflow/scripts/ambx_stage.py comparison --typical {input.typ} "
+        "--conditioned {input.cond} --output {output}"
+
+
+rule figures:
+    input:
+        comparison=f"{OUT_DIR}/comparison_{{scenario}}.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet"
+    output:
+        comparison=f"{OUT_DIR}/figures/comparison_{{scenario}}.png",
+        histogram=f"{OUT_DIR}/figures/delta_time_{{scenario}}_histogram.png"
+    wildcard_constraints:
+        scenario="|".join(CONDITIONED_SCENARIOS)
+    shell:
+        "python3 workflow/scripts/ambx_stage.py figures --comparison {input.comparison} "
+        "--grid {input.grid} --comparison-figure {output.comparison} "
+        "--histogram {output.histogram}"
+
+
+rule figures_typical:
+    input:
+        matrix=f"{OUT_DIR}/matrices/matrix_typical.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet"
+    output: f"{OUT_DIR}/figures/map_typical.png"
+    shell:
+        "python3 workflow/scripts/ambx_stage.py figure-typical "
+        "--matrix {input.matrix} --grid {input.grid} --output {output}"
