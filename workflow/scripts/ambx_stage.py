@@ -1,7 +1,7 @@
 """Stages used by the first Snakemake workflow version."""
 from __future__ import annotations
 
-import argparse, json, pickle, sys
+import argparse, importlib, json, pickle, sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -12,6 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT))
 
 from ambx.grid import generate_grid, GridFormat
 from ambx.network import add_travel_time, get_graph_edges, get_network, project_network, snap_grid_to_network
@@ -27,11 +28,14 @@ def cfg(path):
         return yaml.safe_load(f)
 
 
-def penalty(t):
-    if t <= 25: return 1.0
-    if t <= 27: return 1.2
-    if t <= 30: return 1.5
-    return 2.0
+def resolve_penalty_function(name):
+    """Resolve uma função declarada no YAML."""
+    module_name = f"workflow.rules.{name}"
+    module = importlib.import_module(module_name)
+    try:
+        return getattr(module, name)
+    except AttributeError as exc:
+        raise ValueError(f"Função de penalização '{name}' não encontrada em {module_name}") from exc
 
 
 def prepare(a):
@@ -57,9 +61,22 @@ def route(a):
     if a.scenario == "conditioned":
         edges = gpd.read_parquet(a.edges)
         grid = gpd.read_parquet(str(Path(a.snapped).parent / "grid.parquet"))
-        env = build_environment(grid, raster_paths=[a.raster])
-        rule = PenaltyRule(Path(a.raster).stem, "raster", "travel_time", penalty)
-        penalized = compose_penalties(edges, env, rules=[rule], weight_field="travel_time")
+        rules_cfg = c.get("scenarios", {}).get("conditioned", {}).get("penalties", [])
+        if not rules_cfg:
+            raise ValueError("O cenário condicionado precisa declarar ao menos uma penalização")
+        raster_paths = [r["input"] for r in rules_cfg if r.get("input_type", "raster") == "raster"]
+        vector_paths = [r["input"] for r in rules_cfg if r.get("input_type") == "vector"]
+        env = build_environment(grid, raster_paths=raster_paths, vector_paths=vector_paths)
+        rules = [PenaltyRule(
+            r.get("layer", Path(r["input"]).stem),
+            r.get("input_type", "raster"),
+            r.get("weight_field", "travel_time"),
+            resolve_penalty_function(r["function"]),
+            r.get("sampling", "midpoint"),
+            r.get("n_samples", 4),
+            r.get("aggregation", "max"),
+        ) for r in rules_cfg]
+        penalized = compose_penalties(edges, env, rules=rules, weight_field="travel_time")
         graph = graph.copy()
         for key, value in penalized["travel_time"].items():
             if key in graph.edges: graph.edges[key]["travel_time"] = value
@@ -77,7 +94,8 @@ def comparison(a):
 
 
 def indicators(a):
-    result = compute_all_indicators(pd.read_parquet(a.typical), pd.read_parquet(a.conditioned), k=3)
+    conditioned = pd.read_parquet(a.conditioned) if getattr(a, "conditioned", None) else None
+    result = compute_all_indicators(pd.read_parquet(a.typical), conditioned, k=3)
     serial = {k: (v.to_dict() if isinstance(v, pd.DataFrame) else v) for k, v in result.items()}
     Path(a.output).parent.mkdir(parents=True, exist_ok=True); Path(a.output).write_text(json.dumps(serial, default=str))
 
@@ -129,23 +147,40 @@ def figures(a):
     fig.savefig(a.comparison_figure, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    cells["delta_avg"].dropna().plot.hist(bins=30, ax=ax,
-                                           color="steelblue", edgecolor="white")
-    ax.set_title("Curitiba — distribuição da variação do tempo de acesso")
-    ax.set_xlabel("Delta de tempo (min)")
+    # O histograma é um segundo produto declarado pelo Snakemake.
+    fig, ax = plt.subplots(figsize=(10, 6))
+    delta_vals.plot.hist(bins=30, ax=ax, color="darkorange", edgecolor="white")
+    ax.axvline(0, color="black", linewidth=1, linestyle="--")
+    ax.set_title("Distribuição da variação do tempo de acesso")
+    ax.set_xlabel("Δ tempo (condicionado − típico)")
     ax.set_ylabel("Número de células")
-    plt.tight_layout()
+    fig.tight_layout()
     fig.savefig(a.histogram, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+
+def figure_typical(a):
+    matrix = pd.read_parquet(a.matrix)
+    grid = gpd.read_parquet(a.grid)
+    stats = matrix.groupby("cell_idx")["travel_time"].mean().rename("avg_time_typ").reset_index()
+    cells = grid.merge(stats, on="cell_idx", how="left")
+    fig, ax = plt.subplots(figsize=(10, 8))
+    cells.plot(column="avg_time_typ", cmap="RdYlBu_r", legend=True, ax=ax,
+               edgecolor="white", linewidth=0.1,
+               missing_kwds={"color": "lightgrey", "label": "Sem dados"})
+    ax.set_title("Tempo médio de acesso — Porto Alegre (cenário típico)")
+    ax.set_axis_off(); plt.tight_layout()
+    Path(a.output).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(a.output, dpi=150, bbox_inches="tight"); plt.close(fig)
 
 
 def main():
     p = argparse.ArgumentParser(); sub = p.add_subparsers(dest="stage", required=True)
     q = sub.add_parser("prepare"); q.add_argument("--config"); q.add_argument("--grid"); q.add_argument("--pois"); q.add_argument("--pois-snapped"); q.add_argument("--snapped"); q.add_argument("--graph"); q.add_argument("--edges"); q.set_defaults(fn=prepare)
-    q = sub.add_parser("route"); q.add_argument("--scenario"); q.add_argument("--config"); q.add_argument("--snapped"); q.add_argument("--pois"); q.add_argument("--graph"); q.add_argument("--edges"); q.add_argument("--raster"); q.add_argument("--output"); q.set_defaults(fn=route)
+    q = sub.add_parser("route"); q.add_argument("--scenario"); q.add_argument("--config"); q.add_argument("--snapped"); q.add_argument("--pois"); q.add_argument("--graph"); q.add_argument("--edges"); q.add_argument("--output"); q.set_defaults(fn=route)
     q = sub.add_parser("comparison"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=comparison)
     q = sub.add_parser("indicators"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=indicators)
+    q = sub.add_parser("figure-typical"); q.add_argument("--matrix"); q.add_argument("--grid"); q.add_argument("--output"); q.set_defaults(fn=figure_typical)
     q = sub.add_parser("figures"); q.add_argument("--comparison"); q.add_argument("--grid"); q.add_argument("--comparison-figure"); q.add_argument("--histogram"); q.set_defaults(fn=figures)
     a = p.parse_args(); a.fn(a)
 

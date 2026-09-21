@@ -1,0 +1,17 @@
+city: porto_alegre
+location: "Porto Alegre, Rio Grande do Sul, Brazil"
+grid_format: hexagon
+cell_size: 200
+poi_buffer: 2000
+network_type: walk
+walk_speed_kph: 5.0
+max_snap_distance: 1000
+k_nearest: 3
+n_jobs: 8
+output_dir: results/porto_alegre
+
+scenarios:
+  typical: {}
+  conditioned:
+    enabled: false
+    penalties: []
