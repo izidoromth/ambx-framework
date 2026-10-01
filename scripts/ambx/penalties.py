@@ -33,18 +33,38 @@ from ambx.environment import EnvironmentLayers, RasterLayer, VectorLayer
 
 @dataclass
 class PenaltyRule:
-    """Regra de modificação de custo para uma camada ambiental.
+    """Regra de modificação de custo para uma ou mais camadas ambientais.
 
-    Define **o quê**, **como** e **sobre qual campo** uma camada
-    ambiental impacta os custos da rede.
+    Define **o quê**, **como** e **sobre qual campo** uma ou mais camadas
+    ambientais impactam os custos da rede.
+
+    Uma regra simples (``raster`` ou ``vector``) consulta uma única camada e
+    mantém a API tradicional.
+    Uma regra composta usa ``layer_type="composite"`` e ``layers`` para
+    consultar várias camadas nos mesmos pontos da aresta. Nesse caso,
+    ``penalty_fn`` recebe um dicionário nomeado, por exemplo
+    ``{"lst": 34.0, "area_verde": 1}``, e devolve um único fator. Esse
+    fator continua sendo multiplicado cumulativamente pelas outras regras.
+
+    Em uma regra composta, ``sampling`` e ``aggregation`` são aplicados ao
+    conjunto de camadas. Primeiro, o método de amostragem define os locais
+    de consulta: ``midpoint`` usa apenas o ponto médio da aresta, enquanto
+    ``segments`` cria vários pontos ao longo dela. Em cada local, todas as
+    camadas são consultadas e os valores são entregues juntos à
+    ``penalty_fn``. A função retorna um fator conjunto para aquele local.
+    Só depois esses fatores conjuntos são agregados pela regra. Assim, a
+    implementação não calcula uma média do raster e outra do vetor para
+    combiná-las depois; ela preserva a correspondência espacial entre os
+    valores das camadas.
 
     Attributes
     ----------
     layer_name : str
         Nome da camada em ``EnvironmentLayers`` (ex.: ``"inundacao_2024"``
         para vetorial, ``"temperatura_superficie"`` para raster).
-    layer_type : Literal["raster", "vector"]
-        Tipo da camada.
+    layer_type : Literal["raster", "vector", "composite"]
+        Tipo da regra. ``composite`` indica que a regra consulta as camadas
+        listadas em ``layers``.
     weight_field : str
         Nome do campo de custo nas arestas a ser multiplicado
         pelo fator de penalidade (ex.: ``"travel_time"`` ou ``"length"``).
@@ -66,7 +86,8 @@ class PenaltyRule:
         PenaltyRule(layer_name='inundacao', layer_type='vector', ...)
 
     sampling : Literal["midpoint", "segments"], default "midpoint"
-        Estratégia de amostragem do raster (ignorado para camadas vetoriais):
+        Estratégia de amostragem do raster ou da regra composta. Para uma
+        regra composta, todas as camadas são consultadas nos mesmos pontos:
         - ``"midpoint"``: ponto médio da aresta (rápido, um ponto por aresta)
         - ``"segments"``: segmenta a aresta em ``n_samples`` pontos
           equidistantes ao longo do trecho
@@ -79,15 +100,27 @@ class PenaltyRule:
           próprio fator (mais justo para arestas longas/heterogêneas). Em
           trechos onde 2+ polígonos se sobrepõem, aplica-se o **maior fator**
           entre eles (semântica ``max`` no trecho sobreposto).
+    layers : list[str] | None, default None
+        Nomes das camadas consultadas por uma regra composta. A função recebe
+        um dicionário com esses nomes como chaves.
     """
 
-    layer_name: str
-    layer_type: Literal["raster", "vector"]
+    layer_name: str | None
+    layer_type: Literal["raster", "vector", "composite"]
     weight_field: str | None = None
     penalty_fn: Callable[[Any], float] = field(default=lambda v: 1.0)
     sampling: Literal["midpoint", "segments"] = "midpoint"
     n_samples: int = 4
     aggregation: Literal["max", "mean"] = "max"
+    layers: list[str] | None = None
+
+    def layer_names(self) -> list[str]:
+        """Retorna as camadas usadas pela regra, simples ou composta."""
+        if self.layers:
+            return self.layers
+        if self.layer_name is None:
+            raise ValueError("A regra precisa declarar layer_name ou layers")
+        return [self.layer_name]
 
 
 # Nome conceitual alternativo. PenaltyRule permanece como API compatível.
@@ -478,6 +511,93 @@ def apply_raster_penalty(
     return result
 
 
+def _sample_composite_raster(layer: RasterLayer, points, edges_crs):
+    """Amostra um raster nos pontos comuns de uma regra composta."""
+    if layer.source_path is None:
+        raise ValueError(f"RasterLayer '{layer.name}' não possui source_path")
+    pts = gpd.GeoSeries(points, crs=edges_crs).to_crs(layer.crs)
+    with rasterio.open(layer.source_path) as src:
+        values = [next(src.sample([(p.x, p.y)]))[0] for p in pts]
+    return [np.nan if layer.nodata is not None and v == layer.nodata else v
+            for v in values]
+
+
+def _sample_composite_vector(layer: VectorLayer, points, edges_crs):
+    """Consulta uma camada vetorial nos mesmos pontos da regra composta."""
+    gdf = layer.gdf
+    if gdf.crs != edges_crs:
+        gdf = gdf.to_crs(edges_crs)
+    values = []
+    for point in points:
+        matches = gdf[gdf.geometry.covers(point)]
+        if matches.empty:
+            values.append(0.0)
+        elif layer.value_column is None:
+            values.append(1.0)
+        else:
+            values.append(matches.iloc[0][layer.value_column])
+    return values
+
+
+def apply_composite_penalty(
+    edges_gdf: gpd.GeoDataFrame,
+    env: EnvironmentLayers,
+    rule: PenaltyRule,
+) -> gpd.GeoDataFrame:
+    """Aplica uma regra que combina várias camadas nos mesmos pontos.
+
+    A função da regra recebe ``{nome_da_camada: valor}`` e retorna um fator.
+    ``sampling`` e ``aggregation`` têm a mesma semântica da regra raster.
+    """
+    if rule.sampling not in ("midpoint", "segments"):
+        raise ValueError(f"Estratégia de amostragem inválida: {rule.sampling}")
+    if rule.aggregation not in ("max", "mean"):
+        raise ValueError(f"Agregação inválida: {rule.aggregation}")
+
+    available = {layer.name: layer for layer in [*env.rasters, *env.vectors]}
+    names = rule.layer_names()
+    missing = [name for name in names if name not in available]
+    if missing:
+        raise ValueError(f"Camadas não encontradas: {missing}")
+
+    factors = np.ones(len(edges_gdf), dtype=float)
+    for edge_idx, edge_geom in enumerate(edges_gdf.geometry):
+        if rule.sampling == "midpoint":
+            points = [edge_geom.interpolate(0.5, normalized=True)]
+        else:
+            n = max(rule.n_samples, 2)
+            points = [edge_geom.interpolate(i / (n - 1), normalized=True)
+                      for i in range(n)]
+
+        sampled = {}
+        for name in names:
+            layer = available[name]
+            if isinstance(layer, RasterLayer):
+                sampled[name] = _sample_composite_raster(layer, points, edges_gdf.crs)
+            else:
+                sampled[name] = _sample_composite_vector(layer, points, edges_gdf.crs)
+
+        fs = []
+        for point_idx in range(len(points)):
+            values = {name: sampled[name][point_idx] for name in names}
+            if any(pd.isna(value) for value in values.values()):
+                fs.append(1.0)
+            else:
+                fs.append(float(rule.penalty_fn(values)))
+
+        if rule.aggregation == "max" or len(fs) == 1:
+            factors[edge_idx] = max(fs)
+        else:
+            factors[edge_idx] = (
+                fs[0] + fs[-1] + 2.0 * sum(fs[1:-1])
+            ) / (2.0 * (len(fs) - 1))
+
+    result = edges_gdf.copy()
+    wf = rule.weight_field or "travel_time"
+    result[wf] = result[wf] * factors
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Orquestrador de múltiplas penalidades
 # ---------------------------------------------------------------------------
@@ -524,6 +644,11 @@ def compose_penalties(
     for rule in rules:
         # Usa o weight_field da regra, ou o fallback da função
         wf = rule.weight_field or weight_field
+
+        if rule.layer_type == "composite":
+            rule.weight_field = wf
+            result = apply_composite_penalty(result, env, rule)
+            continue
 
         if rule.layer_type == "vector":
             matching = [v for v in env.vectors if v.name == rule.layer_name]
