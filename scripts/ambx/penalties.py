@@ -46,6 +46,9 @@ class PenaltyRule:
     ``{"lst": 34.0, "area_verde": 1}``, e devolve um único fator. Esse
     fator continua sendo multiplicado cumulativamente pelas outras regras.
 
+    Numa regra composta, ausência de dado vem no valor como ``None`` ou
+    ``NaN`` (ver :func:`apply_composite_penalty`).
+
     Em uma regra composta, ``sampling`` e ``aggregation`` são aplicados ao
     conjunto de camadas. Primeiro, o método de amostragem define os locais
     de consulta: ``midpoint`` usa apenas o ponto médio da aresta, enquanto
@@ -223,6 +226,7 @@ def apply_vector_penalty(
     vector_layer: VectorLayer,
     rule: PenaltyRule,
     aggregation: Literal["max", "mean"] = "max",
+    weight_field: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Aplica penalidade vetorial sobre as arestas da rede.
 
@@ -250,11 +254,14 @@ def apply_vector_penalty(
         Regra de penalização com ``penalty_fn``.
     aggregation : Literal["max", "mean"], default "max"
         Estratégia de agregação dos fatores sobre a aresta.
+    weight_field : str | None, default None
+        Campo de custo a penalizar. Se ``None``, usa ``rule.weight_field``
+        e, na ausência deste, ``"travel_time"``.
 
     Returns
     -------
     gpd.GeoDataFrame
-        ``edges_gdf`` com o campo ``rule.weight_field`` atualizado.
+        ``edges_gdf`` com o campo de custo atualizado.
 
     Raises
     ------
@@ -267,6 +274,8 @@ def apply_vector_penalty(
             f"VectorLayer '{vector_layer.name}' não possui value_column. "
             "Defina value_column ao carregar a camada."
         )
+    wf = rule.weight_field or weight_field or "travel_time"
+
     if aggregation not in ("max", "mean"):
         raise ValueError(f"Agregação inválida: {aggregation}")
 
@@ -342,7 +351,7 @@ def apply_vector_penalty(
             factor_values[i] = (inside_w + outside * 1.0) / L_total
 
     result = edges_gdf.copy()
-    result[rule.weight_field] = result[rule.weight_field] * factor_values
+    result[wf] = result[wf] * factor_values
 
     return result
 
@@ -359,6 +368,7 @@ def apply_raster_penalty(
     sampling: Literal["midpoint", "segments"] = "midpoint",
     n_samples: int = 4,
     aggregation: Literal["max", "mean"] = "max",
+    weight_field: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Aplica penalidade raster sobre as arestas da rede.
 
@@ -402,7 +412,7 @@ def apply_raster_penalty(
     ValueError
         Se ``sampling`` ou ``aggregation`` forem inválidos.
     """
-    wf = rule.weight_field or "travel_time"
+    wf = rule.weight_field or weight_field or "travel_time"
 
     # --- Determinar pontos de amostragem ---
     # Cada aresta pode contribuir com 1 ou mais pontos (ex.: "segments"
@@ -511,43 +521,131 @@ def apply_raster_penalty(
     return result
 
 
+def _composite_sample_points(edges_gdf, rule):
+    """Gera os pontos de amostragem de todas as arestas e o mapa ponto→aresta.
+
+    O número de pontos por aresta depende de ``rule.sampling``:
+
+    - ``"midpoint"``: um ponto no meio da aresta;
+    - ``"segments"``: ``n_samples`` pontos equidistantes (incluindo extremos).
+
+    Retorna ``(points, point_to_edge)``, onde ``points`` é a lista achatada de
+    pontos (na ordem das arestas) e ``point_to_edge[i]`` é o índice da aresta
+    de origem do ponto ``i``.
+    """
+    points = []
+    point_to_edge = []
+    for edge_idx, geom in enumerate(edges_gdf.geometry):
+        if rule.sampling == "midpoint":
+            edge_points = [geom.interpolate(0.5, normalized=True)]
+        else:
+            n = max(rule.n_samples, 2)
+            edge_points = [
+                geom.interpolate(i / (n - 1), normalized=True)
+                for i in range(n)
+            ]
+        for point in edge_points:
+            points.append(point)
+            point_to_edge.append(edge_idx)
+    return points, point_to_edge
+
+
 def _sample_composite_raster(layer: RasterLayer, points, edges_crs):
-    """Amostra um raster nos pontos comuns de uma regra composta."""
+    """Amostra um raster em **todos** os pontos com uma única abertura de arquivo.
+
+    As coordenadas são reprojetadas para o CRS do **arquivo de origem**
+    (``src.crs``), que pode diferir do CRS da camada quando
+    ``build_environment`` reprojeta o raster para o CRS UTM da análise
+    (``dst_crs=env.crs_utm``). Sem essa transformação, a amostragem leria
+    pixels errados.
+    """
     if layer.source_path is None:
         raise ValueError(f"RasterLayer '{layer.name}' não possui source_path")
+    if not points:
+        return []
+
     pts = gpd.GeoSeries(points, crs=edges_crs).to_crs(layer.crs)
+    coords = [(pt.x, pt.y) for pt in pts.geometry]
+
     with rasterio.open(layer.source_path) as src:
-        values = [next(src.sample([(p.x, p.y)]))[0] for p in pts]
-    return [np.nan if layer.nodata is not None and v == layer.nodata else v
-            for v in values]
+        src_crs = src.crs.to_string() if src.crs else None
+        layer_crs = str(layer.crs) if layer.crs is not None else None
+        if src_crs and layer_crs and src_crs != layer_crs:
+            xs, ys = zip(*coords)
+            transformed = rio_transform(layer_crs, src_crs, xs, ys)
+            coords = list(zip(transformed[0], transformed[1]))
+
+        nodata = src.nodata if src.nodata is not None else layer.nodata
+        samples = list(sample_gen(src, coords))
+
+    return [
+        np.nan if nodata is not None and value == nodata else value
+        for (value,) in samples
+    ]
 
 
 def _sample_composite_vector(layer: VectorLayer, points, edges_crs):
-    """Consulta uma camada vetorial nos mesmos pontos da regra composta."""
+    """Consulta uma camada vetorial em **todos** os pontos de uma vez.
+
+    Usa ``gpd.sjoin`` (que consulta o índice espacial do GeoDataFrame), em vez
+    de varrer todos os polígonos por ponto. Sem interseção → ``NaN``; com
+    ``value_column`` definido → valor do **primeiro** polígono que intersecta
+    (mesma semântica anterior); sem ``value_column`` → ``1.0`` quando coberto.
+    """
+    if not points:
+        return []
+
     gdf = layer.gdf
     if gdf.crs != edges_crs:
         gdf = gdf.to_crs(edges_crs)
-    values = []
-    for point in points:
-        matches = gdf[gdf.geometry.covers(point)]
-        if matches.empty:
-            values.append(0.0)
-        elif layer.value_column is None:
-            values.append(1.0)
-        else:
-            values.append(matches.iloc[0][layer.value_column])
-    return values
+
+    pts = gpd.GeoDataFrame(geometry=gpd.GeoSeries(points, crs=edges_crs))
+    n_points = len(points)
+
+    if layer.value_column is None:
+        joined = gpd.sjoin(
+            pts, gdf[["geometry"]], how="inner", predicate="intersects"
+        )
+        covered = set(joined.index)
+        return [1.0 if i in covered else np.nan for i in range(n_points)]
+
+    joined = gpd.sjoin(
+        pts,
+        gdf[[layer.value_column, "geometry"]],
+        how="inner",
+        predicate="intersects",
+    )
+    # Mantém apenas o primeiro polígono que intersecta cada ponto (mesma
+    # semântica de ``matches.iloc[0]``), mas de forma vetorizada — ``iterrows``
+    # aqui é proibitivo quando há muitas arestas/polígonos.
+    joined = joined[~joined.index.duplicated(keep="first")]
+    values = joined[layer.value_column].reindex(range(n_points), fill_value=np.nan)
+    return values.tolist()
 
 
 def apply_composite_penalty(
     edges_gdf: gpd.GeoDataFrame,
     env: EnvironmentLayers,
     rule: PenaltyRule,
+    weight_field: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Aplica uma regra que combina várias camadas nos mesmos pontos.
 
     A função da regra recebe ``{nome_da_camada: valor}`` e retorna um fator.
     ``sampling`` e ``aggregation`` têm a mesma semântica da regra raster.
+
+    O dicionário entregue à ``penalty_fn`` **sempre contém todas as chaves**
+    declaradas em ``rule.layers``. Onde não há dado naquele ponto (pixel
+    nodata no raster ou ponto fora de qualquer polígono da camada vetorial),
+    o valor vem como ``None`` ou ``NaN``: **ausência = ``None`` ou ``NaN``**,
+    tratada pela ``penalty_fn`` com ``pd.isna`` — inclusive quando **todas**
+    as camadas estão ausentes naquele ponto. Não use o valor direto como
+    booleano, pois ``bool(nan)`` é ``True``.
+
+    A amostragem é feita **em lote**: os pontos de todas as arestas são
+    gerados de uma vez e cada camada é consultada uma única vez (um
+    ``rasterio.open`` por raster, um ``sjoin`` por vetor), independentemente
+    do número de arestas.
     """
     if rule.sampling not in ("midpoint", "segments"):
         raise ValueError(f"Estratégia de amostragem inválida: {rule.sampling}")
@@ -560,31 +658,36 @@ def apply_composite_penalty(
     if missing:
         raise ValueError(f"Camadas não encontradas: {missing}")
 
+    wf = rule.weight_field or weight_field or "travel_time"
     factors = np.ones(len(edges_gdf), dtype=float)
-    for edge_idx, edge_geom in enumerate(edges_gdf.geometry):
-        if rule.sampling == "midpoint":
-            points = [edge_geom.interpolate(0.5, normalized=True)]
+
+    points, point_to_edge = _composite_sample_points(edges_gdf, rule)
+    if not points:
+        return edges_gdf.copy()
+
+    # Amostra cada camada em lote (uma abertura de arquivo / um sjoin por camada).
+    sampled = {}
+    for name in names:
+        layer = available[name]
+        if isinstance(layer, RasterLayer):
+            sampled[name] = _sample_composite_raster(layer, points, edges_gdf.crs)
         else:
-            n = max(rule.n_samples, 2)
-            points = [edge_geom.interpolate(i / (n - 1), normalized=True)
-                      for i in range(n)]
+            sampled[name] = _sample_composite_vector(layer, points, edges_gdf.crs)
 
-        sampled = {}
-        for name in names:
-            layer = available[name]
-            if isinstance(layer, RasterLayer):
-                sampled[name] = _sample_composite_raster(layer, points, edges_gdf.crs)
-            else:
-                sampled[name] = _sample_composite_vector(layer, points, edges_gdf.crs)
+    # Fator conjunto por ponto: a função enxerga todas as camadas naquele
+    # ponto — inclusive valores ``NaN`` (nodata / fora de polígono), que ela
+    # mesma deve tratar.
+    point_factors = []
+    for point_idx in range(len(points)):
+        values = {name: sampled[name][point_idx] for name in names}
+        point_factors.append(float(rule.penalty_fn(values)))
 
-        fs = []
-        for point_idx in range(len(points)):
-            values = {name: sampled[name][point_idx] for name in names}
-            if any(pd.isna(value) for value in values.values()):
-                fs.append(1.0)
-            else:
-                fs.append(float(rule.penalty_fn(values)))
+    # Agrega os fatores dos pontos de cada aresta (max ou trapézio).
+    factors_by_edge: dict[int, list[float]] = {}
+    for point_idx, edge_idx in enumerate(point_to_edge):
+        factors_by_edge.setdefault(edge_idx, []).append(point_factors[point_idx])
 
+    for edge_idx, fs in factors_by_edge.items():
         if rule.aggregation == "max" or len(fs) == 1:
             factors[edge_idx] = max(fs)
         else:
@@ -593,7 +696,6 @@ def apply_composite_penalty(
             ) / (2.0 * (len(fs) - 1))
 
     result = edges_gdf.copy()
-    wf = rule.weight_field or "travel_time"
     result[wf] = result[wf] * factors
     return result
 
@@ -646,8 +748,7 @@ def compose_penalties(
         wf = rule.weight_field or weight_field
 
         if rule.layer_type == "composite":
-            rule.weight_field = wf
-            result = apply_composite_penalty(result, env, rule)
+            result = apply_composite_penalty(result, env, rule, weight_field=wf)
             continue
 
         if rule.layer_type == "vector":
@@ -667,13 +768,12 @@ def compose_penalties(
                     "antes de chamar compose_penalties."
                 )
 
-            # Garante que a regra use o weight_field correto
-            rule.weight_field = wf
             result = apply_vector_penalty(
                 result,
                 layer,
                 rule,
                 aggregation=rule.aggregation,
+                weight_field=wf,
             )
 
         elif rule.layer_type == "raster":
@@ -686,7 +786,6 @@ def compose_penalties(
                 )
             layer = matching[0]
 
-            rule.weight_field = wf
             result = apply_raster_penalty(
                 result,
                 layer,
@@ -694,6 +793,7 @@ def compose_penalties(
                 sampling=rule.sampling,
                 n_samples=rule.n_samples,
                 aggregation=rule.aggregation,
+                weight_field=wf,
             )
 
         else:
