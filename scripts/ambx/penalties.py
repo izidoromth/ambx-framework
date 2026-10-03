@@ -38,11 +38,10 @@ class PenaltyRule:
     Define **o quê**, **como** e **sobre qual campo** uma ou mais camadas
     ambientais impactam os custos da rede.
 
-    Uma regra simples (``raster`` ou ``vector``) consulta uma única camada e
-    mantém a API tradicional.
-    Uma regra composta usa ``layer_type="composite"`` e ``layers`` para
-    consultar várias camadas nos mesmos pontos da aresta. Nesse caso,
-    ``penalty_fn`` recebe um dicionário nomeado, por exemplo
+    Uma regra simples (``raster`` ou ``vector``) consulta uma única camada —
+    ``layers`` com um elemento.
+    Uma regra composta usa ``layer_type="composite"`` e lista várias camadas.
+    Nesse caso, ``penalty_fn`` recebe um dicionário nomeado, por exemplo
     ``{"lst": 34.0, "area_verde": 1}``, e devolve um único fator. Esse
     fator continua sendo multiplicado cumulativamente pelas outras regras.
 
@@ -62,12 +61,12 @@ class PenaltyRule:
 
     Attributes
     ----------
-    layer_name : str
-        Nome da camada em ``EnvironmentLayers`` (ex.: ``"inundacao_2024"``
-        para vetorial, ``"temperatura_superficie"`` para raster).
+    layers : list[str]
+        Nomes das camadas em ``EnvironmentLayers`` consultadas pela regra.
+        Uma regra simples tem exatamente um nome; uma composta, um ou mais.
     layer_type : Literal["raster", "vector", "composite"]
-        Tipo da regra. ``composite`` indica que a regra consulta as camadas
-        listadas em ``layers``.
+        Tipo da regra. ``composite`` indica que a regra consulta todas as
+        camadas de ``layers`` nos mesmos pontos.
     weight_field : str
         Nome do campo de custo nas arestas a ser multiplicado
         pelo fator de penalidade (ex.: ``"travel_time"`` ou ``"length"``).
@@ -85,8 +84,8 @@ class PenaltyRule:
         ...     if depth > 20: return 3.0
         ...     if depth > 5:  return 1.5
         ...     return 1.0
-        >>> PenaltyRule("inundacao", "vector", penalty_fn=flood_factor)
-        PenaltyRule(layer_name='inundacao', layer_type='vector', ...)
+        >>> PenaltyRule(["inundacao"], "vector", penalty_fn=flood_factor)
+        PenaltyRule(layers=['inundacao'], layer_type='vector', ...)
 
     sampling : Literal["midpoint", "segments"], default "midpoint"
         Estratégia de amostragem do raster ou da regra composta. Para uma
@@ -104,26 +103,17 @@ class PenaltyRule:
           trechos onde 2+ polígonos se sobrepõem, aplica-se o **maior fator**
           entre eles (semântica ``max`` no trecho sobreposto).
     layers : list[str] | None, default None
-        Nomes das camadas consultadas por uma regra composta. A função recebe
+        Nomes das camadas consultadas pela regra composta. A função recebe
         um dicionário com esses nomes como chaves.
     """
 
-    layer_name: str | None
+    layers: list[str]
     layer_type: Literal["raster", "vector", "composite"]
     weight_field: str | None = None
     penalty_fn: Callable[[Any], float] = field(default=lambda v: 1.0)
     sampling: Literal["midpoint", "segments"] = "midpoint"
     n_samples: int = 4
     aggregation: Literal["max", "mean"] = "max"
-    layers: list[str] | None = None
-
-    def layer_names(self) -> list[str]:
-        """Retorna as camadas usadas pela regra, simples ou composta."""
-        if self.layers:
-            return self.layers
-        if self.layer_name is None:
-            raise ValueError("A regra precisa declarar layer_name ou layers")
-        return [self.layer_name]
 
 
 # Nome conceitual alternativo. PenaltyRule permanece como API compatível.
@@ -653,7 +643,7 @@ def apply_composite_penalty(
         raise ValueError(f"Agregação inválida: {rule.aggregation}")
 
     available = {layer.name: layer for layer in [*env.rasters, *env.vectors]}
-    names = rule.layer_names()
+    names = rule.layers
     missing = [name for name in names if name not in available]
     if missing:
         raise ValueError(f"Camadas não encontradas: {missing}")
@@ -748,14 +738,23 @@ def compose_penalties(
         wf = rule.weight_field or weight_field
 
         if rule.layer_type == "composite":
+            if len(rule.layers) < 1:
+                raise ValueError("Regra composta precisa declarar 'layers'")
             result = apply_composite_penalty(result, env, rule, weight_field=wf)
             continue
 
+        if len(rule.layers) != 1:
+            raise ValueError(
+                f"Regra '{rule.layer_type}' precisa de exatamente uma camada "
+                f"em 'layers', recebeu {rule.layers}"
+            )
+        layer_name = rule.layers[0]
+
         if rule.layer_type == "vector":
-            matching = [v for v in env.vectors if v.name == rule.layer_name]
+            matching = [v for v in env.vectors if v.name == layer_name]
             if not matching:
                 raise ValueError(
-                    f"Camada vetorial '{rule.layer_name}' não encontrada "
+                    f"Camada vetorial '{layer_name}' não encontrada "
                     f"em EnvironmentLayers. Disponíveis: "
                     f"{[v.name for v in env.vectors]}"
                 )
@@ -777,10 +776,10 @@ def compose_penalties(
             )
 
         elif rule.layer_type == "raster":
-            matching = [r for r in env.rasters if r.name == rule.layer_name]
+            matching = [r for r in env.rasters if r.name == layer_name]
             if not matching:
                 raise ValueError(
-                    f"Camada raster '{rule.layer_name}' não encontrada "
+                    f"Camada raster '{layer_name}' não encontrada "
                     f"em EnvironmentLayers. Disponíveis: "
                     f"{[r.name for r in env.rasters]}"
                 )

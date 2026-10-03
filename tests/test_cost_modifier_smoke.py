@@ -37,9 +37,9 @@ def test_penalty_and_mitigation_are_composed(tmp_path):
         crs="EPSG:31982",
     )
     rules = [
-        CostModifier("risk", "vector", "travel_time", lambda value: 2.0),
+        CostModifier(["risk"], "vector", "travel_time", lambda value: 2.0),
         CostModifier(
-            "green", "vector", "travel_time", lambda value: 0.5,
+            ["green"], "vector", "travel_time", lambda value: 0.5,
             aggregation="mean",
         ),
     ]
@@ -80,9 +80,9 @@ def test_high_risk_line_with_two_mitigation_segments(tmp_path):
         crs="EPSG:31982",
     )
     rules = [
-        CostModifier("risk", "vector", "travel_time", lambda value: 2.0),
+        CostModifier(["risk"], "vector", "travel_time", lambda value: 2.0),
         CostModifier(
-            "green", "vector", "travel_time", lambda value: 0.5,
+            ["green"], "vector", "travel_time", lambda value: 0.5,
             aggregation="mean",
         ),
     ]

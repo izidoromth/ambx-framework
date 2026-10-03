@@ -242,17 +242,18 @@ Faltam, portanto:
 
 ### 5.1 Corrigidos (03/10/2026)
 
-Detalhe completo das correções no `git log` (commit `fix: corrige CRS e desempenho da
-penalização composta`). Resumo do que foi feito, para não reabrir a investigação:
+Detalhe completo das correções no `git log`. Resumo do que foi feito, para não
+reabrir a investigação:
 
 | # | Assunto | Correção |
 |:-:|---------|----------|
+| 1 | **Contrato do `PenaltyRule`** | Unificado em `layers: list[str]` (obrigatório, primeiro posicional). `layer_name` e o helper `layer_names()` foram removidos. Regra simples = lista de 1 elemento; `compose_penalties` valida `len(rule.layers) == 1` para tipos não-compostos. Eliminou a ambiguidade do `name` no YAML (rótulo nas simples, nome de camada nas compostas) que causava `Camadas não encontradas: ['lst', 'area_verde']`. **Quebra de API:** call sites migrados em `scripts/ambx/penalties.py`, `workflow/scripts/ambx_stage.py`, 3 arquivos de `tests/`, notebook e 2 scripts de experimento. 9/9 testes e pipeline 10/10 jobs. |
 | 2 | **CRS em `_sample_composite_raster`** | Coordenadas agora são transformadas para o CRS do **arquivo de origem** (`rio_transform`). Antes, com raster reprojetado para UTM pelo `build_environment`, a amostragem lia pixels errados. Teste: `test_composite_raster_transforms_to_source_crs`. |
 | 3 | **Desempenho da amostragem composta** | Amostragem **em lote**: raster aberto 1× (era N×) e vetorial via `gpd.sjoin` (era `iterrows`). Benchmark 3.000 arestas: ~6,3 s → ~0,65 s. |
-| 7 | **`weight_field` sem guard** | As três `apply_*` resolvem o campo internamente (`rule.weight_field or weight_field or "travel_time"`). Regra com `weight_field=None` não quebra mais. |
-| 8 | **`compose_penalties` mutava a regra** | Mutação removida; o fallback é propagado por parâmetro. Teste: `test_compose_penalties_does_not_mutate_rule`. |
-| 9 | **Semântica mista na composição** | Convenção definida (abaixo). Testes: `test_composite_passes_nan_for_uncovered_points`, `test_composite_dict_always_contains_all_keys`. |
 | 4 | **`k` hardcoded nos indicadores** | A regra `indicators` agora recebe `--config` e lê `k_nearest`, como o `route` já fazia. |
+| 5 | **`weight_field` sem guard** | As três `apply_*` resolvem o campo internamente (`rule.weight_field or weight_field or "travel_time"`). Regra com `weight_field=None` não quebra mais. |
+| 6 | **`compose_penalties` mutava a regra** | Mutação removida; o fallback é propagado por parâmetro. Teste: `test_compose_penalties_does_not_mutate_rule`. |
+| 7 | **Semântica mista na composição** | Convenção definida (abaixo). Testes: `test_composite_passes_nan_for_uncovered_points`, `test_composite_dict_always_contains_all_keys`. |
 
 **Convenção de ausência em regras compostas** (importante para quem escrever
 `penalty_fn`):
@@ -296,53 +297,28 @@ penalização composta`). Resumo do que foi feito, para não reabrir a investiga
    adicional é proporcional ao número de pontos amostrados; **não foi medido em
    escala real** (fora do escopo do trabalho).
 
-2. **Contrato do `PenaltyRule`: unificar em `layers` (remover `layer_name`).**
-   Hoje existem **dois campos para a mesma finalidade** e cada tipo de regra usa um:
-
-   | | Campo usado |
-   |---|---|
-   | Regra simples (`raster`/`vector`) | `layer_name` (string) |
-   | Regra composta (`composite`) | `layers` (lista) |
-   | `apply_composite_penalty` | `rule.layer_names()` — aceita os dois |
-   | `compose_penalties` (vector/raster) | `rule.layer_name` **direto** |
-
-   Isso já causou confusão real: no YAML, o `name` de uma regra simples é o **rótulo
-   da penalização** (`lst`), enquanto numa regra composta é o **nome da camada**.
-   Interpretar um pelo outro quebrou a busca das camadas em `compose_penalties`
-   (`Camadas não encontradas: ['lst', 'area_verde']`).
-
-   **Decisão:** unificar em `layers: list[str]` — um elemento para regras simples,
-   N para compostas — e remover `layer_name` e o helper `layer_names()`.
-   `compose_penalties` valida `len(rule.layers) == 1` quando o tipo não é composite.
-
-   ⚠️ **Quebra de API:** o primeiro argumento posicional de `PenaltyRule` deixa de
-   ser `layer_name`. Atualizar os call sites em `workflow/scripts/ambx_stage.py`,
-   nos 3 arquivos de `tests/` e no notebook. Feito isso, os nomes de camada passam a
-   ser declarados **sempre** no YAML (hoje o rename do composite vive no stage, como
-   contorno).
-
-3. **`comparison` do workflow não reporta pares perdidos.** O merge
+2. **`comparison` do workflow não reporta pares perdidos.** O merge
    `typ.merge(cond, ...)` (inner) preserva os pares com `travel_time=NaN` no
    condicionado, mas a regra não contabiliza/expõe explicitamente os "pares perdidos"
    (o script de experimento faz isso; o workflow, não).
 
-4. **Acoplamento frágil em `route` (condicionado).** O caminho do grid é inferido de
+3. **Acoplamento frágil em `route` (condicionado).** O caminho do grid é inferido de
    `Path(a.snapped).parent / "grid.parquet"`. Funciona, mas depende do layout de
    saída do `prepare`. Melhor declarar `grid` como input explícito da regra.
 
-5. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
+4. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
    (`environment.py`), mascarando pixels de valor `0` legítimo. A função **não é usada
    em lugar nenhum** e está marcada como não testada — inofensiva hoje, mas é uma
    armadilha latente.
 
-6. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
+5. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
    entrada `.gpkg`, mas lê `read_parquet`.
 
-7. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
+6. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
    (poluição de stdout no Snakemake). Em Linux (fork) funciona; em Windows/macOS o
    `multiprocessing` com `spawn` pode falhar sem o guard.
 
-8. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
+7. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
     Em `_segment_factors` (`penalties.py`), os pontos de corte vêm de
     `edge_geom.intersection(polygon.boundary)` e apenas geometrias `Point`/`MultiPoint`
     são consideradas. Quando a aresta corre **sobre** um trecho da borda — comum em redes

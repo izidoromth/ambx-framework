@@ -154,7 +154,7 @@ print("[4] Aplicando penalidade LST via compose_penalties...")
 t0 = time.time()
 
 rule = PenaltyRule(
-    layer_name="LST_Anual_2026_221077_Mediana",
+    layers=["LST_Anual_2026_221077_Mediana"],
     layer_type="raster",
     weight_field="travel_time",
     penalty_fn=lst_penalty,

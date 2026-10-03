@@ -63,7 +63,6 @@ def _lst_green_penalty(values):
 
 def _rule(**kwargs):
     return PenaltyRule(
-        layer_name=None,
         layer_type="composite",
         weight_field="travel_time",
         penalty_fn=_lst_green_penalty,
@@ -146,7 +145,6 @@ def test_composite_raster_transforms_to_source_crs(tmp_path):
     env = EnvironmentLayers()
     env.add_raster(layer)
     rule = PenaltyRule(
-        layer_name=None,
         layer_type="composite",
         weight_field="travel_time",
         penalty_fn=lambda values: 2.0 if values["lst"] > 30 else 1.0,
@@ -179,7 +177,6 @@ def test_composite_passes_nan_for_uncovered_points(tmp_path):
         return 2.0
 
     rule = PenaltyRule(
-        layer_name=None,
         layer_type="composite",
         weight_field="travel_time",
         penalty_fn=penalty,
@@ -214,7 +211,6 @@ def test_composite_dict_always_contains_all_keys(tmp_path):
         return 1.0
 
     rule = PenaltyRule(
-        layer_name=None,
         layer_type="composite",
         weight_field="travel_time",
         penalty_fn=penalty,
@@ -238,7 +234,6 @@ def test_compose_penalties_does_not_mutate_rule(tmp_path):
         crs=CRS,
     )
     rule = PenaltyRule(
-        layer_name=None,
         layer_type="composite",
         weight_field=None,
         penalty_fn=lambda values: 1.5,

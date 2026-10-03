@@ -108,11 +108,10 @@ def _build_rule(r):
 
     Suporta dois formatos:
 
-    - **simples** (raster/vector): a camada é a própria entrada, identificada
-      por ``layer`` (ou pelo nome do arquivo);
+    - **simples** (raster/vector): declara um único nome de camada em
+      ``layers``;
     - **composta** (``input_type: composite``): declara ``layers`` (nomes
-      semânticos) e ``inputs`` (spec de cada camada, com ``name``);
-      ``layer_name`` fica ``None``.
+      semânticos) e ``inputs`` (spec de cada camada, com ``name``).
     """
     fn = resolve_penalty_function(r["function"])
     tipo = r.get("input_type", "raster")
@@ -126,17 +125,16 @@ def _build_rule(r):
                 "O nome precisa casar com as chaves que a penalty_fn espera."
             )
         return PenaltyRule(
-            layer_name=None,
+            layers=layers,
             layer_type="composite",
             weight_field=r.get("weight_field", "travel_time"),
             penalty_fn=fn,
             sampling=r.get("sampling", "midpoint"),
             n_samples=r.get("n_samples", 4),
             aggregation=r.get("aggregation", "max"),
-            layers=layers,
         )
     return PenaltyRule(
-        r.get("layer", Path(r["input"]).stem),
+        [r.get("layer", Path(r["input"]).stem)],
         tipo,
         r.get("weight_field", "travel_time"),
         fn,

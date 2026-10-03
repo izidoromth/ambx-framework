@@ -117,9 +117,9 @@ def main() -> None:
     print(f"referencia exata: {exato:.2f}")
     print("=" * 72)
 
-    r_lst = PenaltyRule("lst", "raster", "travel_time", _lst_factor,
+    r_lst = PenaltyRule(["lst"], "raster", "travel_time", _lst_factor,
                         sampling="segments", n_samples=4, aggregation="max")
-    r_green = PenaltyRule("verde", "vector", "travel_time",
+    r_green = PenaltyRule(["verde"], "vector", "travel_time",
                           lambda _v: GREEN_FACTOR, aggregation="mean")
     out = compose_penalties(edges, env, [r_lst, r_green])
     v_cum = out["travel_time"].mean()
@@ -127,9 +127,8 @@ def main() -> None:
 
     print(f"\n{'n_samples':>10}{'valor':>10}{'erro':>10}")
     for n in (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2056, 4096, 8192):
-        rule = PenaltyRule(layer_name=None, layer_type="composite",
+        rule = PenaltyRule(layers=["lst", "verde"], layer_type="composite",
                            weight_field="travel_time", penalty_fn=_composite_fn,
-                           layers=["lst", "verde"],
                            sampling="segments", n_samples=n, aggregation="mean")
         res = compose_penalties(edges, env, [rule])
         v = res["travel_time"].mean()

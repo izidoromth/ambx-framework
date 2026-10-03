@@ -38,7 +38,7 @@ def test_geoparquet_vector_penalty(tmp_path):
         crs="EPSG:31982",
     )
     rule = PenaltyRule(
-        layer_name="risco",
+        layers=["risco"],
         layer_type="vector",
         weight_field="travel_time",
         penalty_fn=lambda value: 2.0 if value == "Alta" else 1.0,
