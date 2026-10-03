@@ -73,12 +73,15 @@ Destaques para quem retomar o código:
 - Um único `workflow/Snakefile` atende todas as cidades/cenários; a cidade é escolhida
   via `snakemake --configfile workflow/config/<cidade>.yaml`.
 - Configurações existentes:
-  - `workflow/config/curitiba.yaml` — cenários `typical`, `lst`, `lst_green`
+  - `workflow/config/curitiba.yaml` — cenários `typical`, `lst`, `lst_green`,
+    `lst_green_composite`
   - `workflow/config/porto_alegre.yaml` — cenários `typical`, `inundacao`,
     `movimento_massa`, `combinado`
 - As funções de penalização ficam em `workflow/rules/` e são importadas
   dinamicamente pelo YAML: `curitiba_lst`, `curitiba_green_modifier`,
-  `porto_alegre_inundacao`, `porto_alegre_movimento_massa`.
+  `curitiba_lst_green`, `porto_alegre_inundacao`, `porto_alegre_movimento_massa`.
+- **Regras compostas** (`input_type: composite`) são declaradas com `layers` +
+  `inputs` no YAML e montadas por `_build_rule` no `ambx_stage.py`.
 - Regras: `prepare`, `route_typical`, `route_conditioned` (wildcard de cenário),
   `indicators`, `comparison`, `figures`, `figures_typical`, `all`.
 - Produtos por cenário: `matrix_<cenario>.parquet`, `indicators_<cenario>.json`,
@@ -116,7 +119,7 @@ Destaques para quem retomar o código:
 | Etapa da proposta | Prazo | Estado | Principais pendências |
 |-------------------|-------|:------:|----------------------|
 | 1. Preparação de Dados | Junho | 🟢 Quase completa | Censo, área verde e camadas de POA OK; falta a documentação da origem do LST |
-| 2. Implementação Computacional | Julho | 🟢 Quase completa | Ligar a penalização composta ao workflow; calibrar a função de penalização e rodar análise de sensibilidade |
+| 2. Implementação Computacional | Julho | 🟢 Quase completa | Calibrar a função de penalização e rodar análise de sensibilidade |
 | 3. Aplicação Experimental | Agosto | 🔴 Incompleta | Workflow nunca executado (`results/` vazio); F15 sem população |
 | 4. Análise Socioespacial | Setembro | 🔴 Ausente | Regressão, testes estatísticos, clusterização/mapas de manchas, integração do censo às células |
 | 5. Redação e Revisão | Outubro | 🟡 Parcial | Resultados reais ainda não incorporados; coletânea de artigos |
@@ -157,10 +160,11 @@ Destaques para quem retomar o código:
 
 ### 4.2 Etapa 2 — Implementação Computacional
 
-6. **Ligar a penalização composta ao workflow.** A capacidade de
-   `layer_type="composite"` (consultar várias camadas no mesmo ponto) existe na lib e
-   está testada, mas o YAML/`ambx_stage.py` só montam regras **simples**, compostas
-   sequencialmente. Ver Seção 5 para o impacto (ex.: cenário `lst_green`).
+6. ~~**Ligar a penalização composta ao workflow.**~~ ✅ **Resolvido (03/10/2026):**
+   o YAML aceita `input_type: composite` (com `layers` + `inputs`) e o
+   `ambx_stage.py` monta a `PenaltyRule` correspondente. Cenário
+   `lst_green_composite` adicionado ao lado de `lst_green`. Ver Seção 5, item 1,
+   para o resultado medido da comparação entre as duas semânticas.
 
 7. **Calibração/parametrização da função de penalização.**
    As funções agora vivem em `workflow/rules/` (`curitiba_lst`, `curitiba_green_modifier`,
@@ -265,36 +269,80 @@ penalização composta`). Resumo do que foi feito, para não reabrir a investiga
 
 ### 5.2 Abertas
 
-1. **A penalização composta não é usada pelo workflow.** `composite` aparece apenas em
-   `scripts/ambx/penalties.py` e nos testes — não há referência em `workflow/`. O
-   `ambx_stage.py` monta regras **simples** (uma por item do YAML) e as compõe
-   **sequencialmente**. Impacto concreto: o cenário `lst_green` aplica LST e área verde
-   em sequência (cada um com sua própria agregação), **perdendo a correspondência
-   espacial entre calor e vegetação no mesmo ponto** — exatamente o problema que a
-   composite foi criada para resolver.
+1. **Duas semânticas de penalização (decisão de design, com resultado medido).**
+   A lib oferece **cumulativa** (regras simples em sequência) e **composta**
+   (`input_type: composite`), e a escolha fica com o usuário. O caso `lst_green`
+   de Curitiba mantém **as duas** implementações para comparação:
+   - `lst_green` (cumulativa) — pondera o verde pelo **comprimento exato** da
+     interseção, mas **não expressa interação**: desconta verde onde não há calor
+     (ex.: 20 °C + verde → fator 0,75).
+   - `lst_green_composite` (composta) — vê LST e verde **no mesmo ponto** e só
+     atenua onde há calor (20 °C + verde → fator 1,0). Em troca, aproxima a
+     proporção de cobertura por **amostragem**.
 
-2. **`comparison` do workflow não reporta pares perdidos.** O merge
+   O experimento `scripts/experiments/composite_sampling_tradeoff.py` mede o erro
+   de discretização da composta contra a cumulativa (referência exata). Com 40% da
+   aresta coberta e LST 38 °C (exato = 180,00):
+
+   | `n_samples` | valor | erro |
+   |---:|---:|---:|
+   | 2 | 175,00 | −2,78% |
+   | 8 | 182,14 | +1,19% |
+   | 32 | 179,84 | −0,09% |
+   | 1024 | 179,99 | −0,01% |
+
+   O erro **oscila** (é discretização, não ruído aleatório), mas a amplitude cai
+   conforme `n_samples` cresce, convergindo para o valor da cumulativa. O custo
+   adicional é proporcional ao número de pontos amostrados; **não foi medido em
+   escala real** (fora do escopo do trabalho).
+
+2. **Contrato do `PenaltyRule`: unificar em `layers` (remover `layer_name`).**
+   Hoje existem **dois campos para a mesma finalidade** e cada tipo de regra usa um:
+
+   | | Campo usado |
+   |---|---|
+   | Regra simples (`raster`/`vector`) | `layer_name` (string) |
+   | Regra composta (`composite`) | `layers` (lista) |
+   | `apply_composite_penalty` | `rule.layer_names()` — aceita os dois |
+   | `compose_penalties` (vector/raster) | `rule.layer_name` **direto** |
+
+   Isso já causou confusão real: no YAML, o `name` de uma regra simples é o **rótulo
+   da penalização** (`lst`), enquanto numa regra composta é o **nome da camada**.
+   Interpretar um pelo outro quebrou a busca das camadas em `compose_penalties`
+   (`Camadas não encontradas: ['lst', 'area_verde']`).
+
+   **Decisão:** unificar em `layers: list[str]` — um elemento para regras simples,
+   N para compostas — e remover `layer_name` e o helper `layer_names()`.
+   `compose_penalties` valida `len(rule.layers) == 1` quando o tipo não é composite.
+
+   ⚠️ **Quebra de API:** o primeiro argumento posicional de `PenaltyRule` deixa de
+   ser `layer_name`. Atualizar os call sites em `workflow/scripts/ambx_stage.py`,
+   nos 3 arquivos de `tests/` e no notebook. Feito isso, os nomes de camada passam a
+   ser declarados **sempre** no YAML (hoje o rename do composite vive no stage, como
+   contorno).
+
+3. **`comparison` do workflow não reporta pares perdidos.** O merge
    `typ.merge(cond, ...)` (inner) preserva os pares com `travel_time=NaN` no
    condicionado, mas a regra não contabiliza/expõe explicitamente os "pares perdidos"
    (o script de experimento faz isso; o workflow, não).
 
-3. **Acoplamento frágil em `route` (condicionado).** O caminho do grid é inferido de
+4. **Acoplamento frágil em `route` (condicionado).** O caminho do grid é inferido de
    `Path(a.snapped).parent / "grid.parquet"`. Funciona, mas depende do layout de
    saída do `prepare`. Melhor declarar `grid` como input explícito da regra.
 
-4. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
+5. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
    (`environment.py`), mascarando pixels de valor `0` legítimo. A função **não é usada
    em lugar nenhum** e está marcada como não testada — inofensiva hoje, mas é uma
    armadilha latente.
 
-5. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
+6. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
    entrada `.gpkg`, mas lê `read_parquet`.
 
-6. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
+7. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
    (poluição de stdout no Snakemake). Em Linux (fork) funciona; em Windows/macOS o
    `multiprocessing` com `spawn` pode falhar sem o guard.
 
-7. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
+8. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
     Em `_segment_factors` (`penalties.py`), os pontos de corte vêm de
     `edge_geom.intersection(polygon.boundary)` e apenas geometrias `Point`/`MultiPoint`
     são consideradas. Quando a aresta corre **sobre** um trecho da borda — comum em redes
@@ -319,7 +367,7 @@ Esta seção consolida o plano de trabalho — incluindo o que antes estava nos 
 condicionado de Curitiba e de Porto Alegre) executáveis pelo mesmo `Snakefile`, com
 resultados comparáveis e reprodutíveis.
 
-1. Ligar a penalização composta ao workflow (YAML + `ambx_stage.py`).
+1. ~~Ligar a penalização composta ao workflow~~ ✅ (feito — cenário `lst_green_composite`).
 2. Conectar o Censo: filtrar municípios (Curitiba `4106902`, Porto Alegre `4314902`),
    interpolar população/variáveis para a malha e habilitar o **F15 ponderado pela
    população** na regra `indicators` (com `k` vindo do config).
@@ -367,10 +415,11 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
 - [x] Alinhar o `weight_field` das funções `apply_*` (e remover a mutação da regra).
 - [x] Convenção de ausência na composição (`None`/`NaN` no valor; chaves sempre presentes).
 - [x] `k` dos indicadores vindo do config (`k_nearest`), em vez de `k=3` fixo.
+- [x] Penalização composta ligada ao workflow (cenário `lst_green_composite`).
+- [x] Experimento de trade-off da amostragem composta.
 
 **Bloqueadores (sem eles a proposta não fecha):**
 
-- [ ] **Ligar a penalização composta ao workflow** (YAML + `ambx_stage.py`) e usá-la em `lst_green`.
 - [ ] **Conectar população ao workflow** e habilitar **F15** nos indicadores (`k` vindo do config).
 - [ ] **Executar o workflow** de Curitiba e Porto Alegre e registrar `results/`.
 - [ ] **Definir `run_config`/metadados** de cada execução.

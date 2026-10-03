@@ -7,7 +7,18 @@ CONFIG_PATH = workflow.configfiles[0]
 
 
 def scenario_inputs(scenario):
-    return [r["input"] for r in SCENARIOS[scenario].get("penalties", [])]
+    """Arquivos de entrada das penalizações de um cenário.
+
+    Regras simples declaram ``input``; regras compostas declaram as camadas em
+    ``inputs`` (um spec por camada).
+    """
+    arquivos = []
+    for r in SCENARIOS[scenario].get("penalties", []):
+        if r.get("input_type") == "composite":
+            arquivos.extend(s["input"] for s in r.get("inputs", {}).values())
+        else:
+            arquivos.append(r["input"])
+    return arquivos
 
 
 rule all:

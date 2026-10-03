@@ -33,3 +33,22 @@ scenarios:
         input_type: vector
         value_field: green_presence
         aggregation: mean
+  lst_green_composite:
+    penalties:
+      - name: lst_green
+        function: curitiba_lst_green
+        input_type: composite
+        layers: [lst, area_verde]
+        sampling: segments
+        n_samples: 4
+        aggregation: mean
+        inputs:
+          lst:
+            name: lst
+            input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+            input_type: raster
+          area_verde:
+            name: area_verde
+            input: data/processed/curitiba/area_verde_2019.geoparquet
+            input_type: vector
+            value_field: green_presence

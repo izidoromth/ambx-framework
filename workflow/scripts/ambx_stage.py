@@ -54,6 +54,98 @@ def prepare(a):
     with open(a.graph, "wb") as f: pickle.dump(graph, f)
 
 
+def _scan_layer_specs(rules_cfg):
+    """Achata as camadas declaradas pelas regras (simples e compostas).
+
+    Regra simples: declara ``input``/``input_type``/``value_field`` direto.
+    Regra composta: declara ``layers`` (nomes) + ``inputs`` (spec por camada).
+    """
+    specs = []
+    for r in rules_cfg:
+        if r.get("input_type") == "composite":
+            specs.extend(r.get("inputs", {}).values())
+        else:
+            specs.append(r)
+    return specs
+
+
+def _composite_names(rules_cfg):
+    """Mapeia ``caminho -> nome semântico`` para as camadas de regras compostas.
+
+    Nas regras simples, o ``name`` do YAML é apenas o rótulo da penalização e a
+    camada é identificada por ``layer``; renomeá-la ali quebraria a busca em
+    ``compose_penalties``. Só as regras compostas nomeiam camadas.
+
+    O caminho é resolvido para absoluto, pois ``source_path`` das camadas
+    carregadas também é absoluto (o YAML costuma usar caminho relativo).
+    """
+    nomes = {}
+    for r in rules_cfg:
+        if r.get("input_type") != "composite":
+            continue
+        for spec in r.get("inputs", {}).values():
+            if "name" in spec:
+                nomes[str(Path(spec["input"]).resolve())] = spec["name"]
+    return nomes
+
+
+def _rename_layers(env, nomes):
+    """Renomeia as camadas do ``env`` conforme o mapeamento ``caminho -> nome``.
+
+    Usa apenas a API pública de ``EnvironmentLayers``: ``name`` e
+    ``source_path`` de cada camada. O nome é usado como chave do dicionário
+    entregue à ``penalty_fn`` das regras compostas.
+    """
+    for layer in [*env.rasters, *env.vectors]:
+        nome = nomes.get(str(Path(layer.source_path).resolve()))
+        if nome:
+            layer.name = nome
+    return env
+
+
+def _build_rule(r):
+    """Monta uma ``PenaltyRule`` a partir da configuração YAML.
+
+    Suporta dois formatos:
+
+    - **simples** (raster/vector): a camada é a própria entrada, identificada
+      por ``layer`` (ou pelo nome do arquivo);
+    - **composta** (``input_type: composite``): declara ``layers`` (nomes
+      semânticos) e ``inputs`` (spec de cada camada, com ``name``);
+      ``layer_name`` fica ``None``.
+    """
+    fn = resolve_penalty_function(r["function"])
+    tipo = r.get("input_type", "raster")
+    if tipo == "composite":
+        layers = r["layers"]
+        nomes = {s.get("name") for s in r.get("inputs", {}).values()}
+        faltando = [nome for nome in layers if nome not in nomes]
+        if faltando:
+            raise ValueError(
+                f"As camadas {faltando} não têm 'name' declarado em 'inputs'. "
+                "O nome precisa casar com as chaves que a penalty_fn espera."
+            )
+        return PenaltyRule(
+            layer_name=None,
+            layer_type="composite",
+            weight_field=r.get("weight_field", "travel_time"),
+            penalty_fn=fn,
+            sampling=r.get("sampling", "midpoint"),
+            n_samples=r.get("n_samples", 4),
+            aggregation=r.get("aggregation", "max"),
+            layers=layers,
+        )
+    return PenaltyRule(
+        r.get("layer", Path(r["input"]).stem),
+        tipo,
+        r.get("weight_field", "travel_time"),
+        fn,
+        r.get("sampling", "midpoint"),
+        r.get("n_samples", 4),
+        r.get("aggregation", "max"),
+    )
+
+
 def route(a):
     c = cfg(a.config)
     with open(a.graph, "rb") as f: graph = pickle.load(f)
@@ -65,12 +157,13 @@ def route(a):
         rules_cfg = scenario_cfg.get("penalties", [])
         if not rules_cfg:
             raise ValueError(f"O cenário '{a.scenario}' precisa declarar penalizações")
-        raster_paths = [r["input"] for r in rules_cfg if r.get("input_type", "raster") == "raster"]
-        vector_paths = [r["input"] for r in rules_cfg if r.get("input_type") == "vector"]
+        specs = _scan_layer_specs(rules_cfg)
+        raster_paths = [s["input"] for s in specs if s.get("input_type", "raster") == "raster"]
+        vector_paths = [s["input"] for s in specs if s.get("input_type") == "vector"]
         vector_value_columns = {
-            r["input"]: r["value_field"]
-            for r in rules_cfg
-            if r.get("input_type") == "vector" and r.get("value_field")
+            s["input"]: s["value_field"]
+            for s in specs
+            if s.get("input_type") == "vector" and s.get("value_field")
         }
         env = build_environment(
             grid,
@@ -78,15 +171,8 @@ def route(a):
             vector_paths=vector_paths,
             vector_value_columns=vector_value_columns,
         )
-        rules = [PenaltyRule(
-            r.get("layer", Path(r["input"]).stem),
-            r.get("input_type", "raster"),
-            r.get("weight_field", "travel_time"),
-            resolve_penalty_function(r["function"]),
-            r.get("sampling", "midpoint"),
-            r.get("n_samples", 4),
-            r.get("aggregation", "max"),
-        ) for r in rules_cfg]
+        _rename_layers(env, _composite_names(rules_cfg))
+        rules = [_build_rule(r) for r in rules_cfg]
         penalized = compose_penalties(edges, env, rules=rules, weight_field="travel_time")
         graph = graph.copy()
         for key, value in penalized["travel_time"].items():
