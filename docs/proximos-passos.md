@@ -1,4 +1,0 @@
-- Implementar CostModifier com múltiplas camadas.
-- Finalizar análises socioeconomicas
-- Escrever seção "Outros Casos de Uso"
-    - Cenários de mitigação e impactos (Plantar árvores em tais regiões promoveria uma diminuição no tempo de acesso de tantos %)
