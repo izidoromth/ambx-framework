@@ -105,8 +105,9 @@ def comparison(a):
 
 
 def indicators(a):
+    c = cfg(a.config)
     conditioned = pd.read_parquet(a.conditioned) if getattr(a, "conditioned", None) else None
-    result = compute_all_indicators(pd.read_parquet(a.typical), conditioned, k=3)
+    result = compute_all_indicators(pd.read_parquet(a.typical), conditioned, k=c["k_nearest"])
     serial = {k: (v.to_dict() if isinstance(v, pd.DataFrame) else v) for k, v in result.items()}
     Path(a.output).parent.mkdir(parents=True, exist_ok=True); Path(a.output).write_text(json.dumps(serial, default=str))
 
@@ -190,7 +191,7 @@ def main():
     q = sub.add_parser("prepare"); q.add_argument("--config"); q.add_argument("--grid"); q.add_argument("--pois"); q.add_argument("--pois-snapped"); q.add_argument("--snapped"); q.add_argument("--graph"); q.add_argument("--edges"); q.set_defaults(fn=prepare)
     q = sub.add_parser("route"); q.add_argument("--scenario"); q.add_argument("--config"); q.add_argument("--snapped"); q.add_argument("--pois"); q.add_argument("--graph"); q.add_argument("--edges"); q.add_argument("--output"); q.set_defaults(fn=route)
     q = sub.add_parser("comparison"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=comparison)
-    q = sub.add_parser("indicators"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=indicators)
+    q = sub.add_parser("indicators"); q.add_argument("--config"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=indicators)
     q = sub.add_parser("figure-typical"); q.add_argument("--matrix"); q.add_argument("--grid"); q.add_argument("--output"); q.set_defaults(fn=figure_typical)
     q = sub.add_parser("figures"); q.add_argument("--comparison"); q.add_argument("--grid"); q.add_argument("--comparison-figure"); q.add_argument("--histogram"); q.set_defaults(fn=figures)
     a = p.parse_args(); a.fn(a)

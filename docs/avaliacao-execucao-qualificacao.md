@@ -117,7 +117,7 @@ Destaques para quem retomar o código:
 |-------------------|-------|:------:|----------------------|
 | 1. Preparação de Dados | Junho | 🟢 Quase completa | Censo, área verde e camadas de POA OK; falta a documentação da origem do LST |
 | 2. Implementação Computacional | Julho | 🟢 Quase completa | Ligar a penalização composta ao workflow; calibrar a função de penalização e rodar análise de sensibilidade |
-| 3. Aplicação Experimental | Agosto | 🔴 Incompleta | Workflow nunca executado (`results/` vazio); F15 sem população; `k` hardcoded |
+| 3. Aplicação Experimental | Agosto | 🔴 Incompleta | Workflow nunca executado (`results/` vazio); F15 sem população |
 | 4. Análise Socioespacial | Setembro | 🔴 Ausente | Regressão, testes estatísticos, clusterização/mapas de manchas, integração do censo às células |
 | 5. Redação e Revisão | Outubro | 🟡 Parcial | Resultados reais ainda não incorporados; coletânea de artigos |
 
@@ -182,10 +182,10 @@ Destaques para quem retomar o código:
    os artefatos (matrizes, indicadores, figuras).
 
 10. **F15 nos indicadores do workflow.**
-    A regra `indicators` chama `compute_all_indicators(..., k=3)` **sem população** e
-    com `k` hardcoded (ignora `k_nearest` do yaml). Consequência: `f15_typ`/`f15_cond`
-    saem vazios. Falta:
-    - Passar `population` (interpolação do censo) e `k` do config para a regra.
+    A regra `indicators` chama `compute_all_indicators(...)` **sem população**.
+    Consequência: `f15_typ`/`f15_cond` saem vazios. Falta:
+    - Passar `population` (interpolação do censo) para a regra.
+    - ✅ O `k` já vem do config (`k_nearest`), corrigido em 03/10/2026.
 
 ### 4.4 Etapa 4 — Análise Socioespacial (maior lacuna)
 
@@ -248,6 +248,7 @@ penalização composta`). Resumo do que foi feito, para não reabrir a investiga
 | 7 | **`weight_field` sem guard** | As três `apply_*` resolvem o campo internamente (`rule.weight_field or weight_field or "travel_time"`). Regra com `weight_field=None` não quebra mais. |
 | 8 | **`compose_penalties` mutava a regra** | Mutação removida; o fallback é propagado por parâmetro. Teste: `test_compose_penalties_does_not_mutate_rule`. |
 | 9 | **Semântica mista na composição** | Convenção definida (abaixo). Testes: `test_composite_passes_nan_for_uncovered_points`, `test_composite_dict_always_contains_all_keys`. |
+| 4 | **`k` hardcoded nos indicadores** | A regra `indicators` agora recebe `--config` e lê `k_nearest`, como o `route` já fazia. |
 
 **Convenção de ausência em regras compostas** (importante para quem escrever
 `penalty_fn`):
@@ -281,21 +282,19 @@ penalização composta`). Resumo do que foi feito, para não reabrir a investiga
    `Path(a.snapped).parent / "grid.parquet"`. Funciona, mas depende do layout de
    saída do `prepare`. Melhor declarar `grid` como input explícito da regra.
 
-4. **`k` hardcoded** na regra `indicators` (`k=3`), ignorando `k_nearest` do config.
-
-5. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
+4. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
    (`environment.py`), mascarando pixels de valor `0` legítimo. A função **não é usada
    em lugar nenhum** e está marcada como não testada — inofensiva hoje, mas é uma
    armadilha latente.
 
-6. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
+5. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
    entrada `.gpkg`, mas lê `read_parquet`.
 
-7. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
+6. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
    (poluição de stdout no Snakemake). Em Linux (fork) funciona; em Windows/macOS o
    `multiprocessing` com `spawn` pode falhar sem o guard.
 
-8. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
+7. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
     Em `_segment_factors` (`penalties.py`), os pontos de corte vêm de
     `edge_geom.intersection(polygon.boundary)` e apenas geometrias `Point`/`MultiPoint`
     são consideradas. Quando a aresta corre **sobre** um trecho da borda — comum em redes
@@ -367,6 +366,7 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
 - [x] Suíte de testes (9 testes) e dependências pinadas/instaladas.
 - [x] Alinhar o `weight_field` das funções `apply_*` (e remover a mutação da regra).
 - [x] Convenção de ausência na composição (`None`/`NaN` no valor; chaves sempre presentes).
+- [x] `k` dos indicadores vindo do config (`k_nearest`), em vez de `k=3` fixo.
 
 **Bloqueadores (sem eles a proposta não fecha):**
 

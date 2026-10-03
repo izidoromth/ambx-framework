@@ -76,11 +76,12 @@ rule indicators:
         typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
         cond=f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
     output: f"{OUT_DIR}/indicators_{{scenario}}.json"
+    params: cfg=CONFIG_PATH
     wildcard_constraints:
         scenario="|".join(CONDITIONED_SCENARIOS)
     shell:
-        "python3 workflow/scripts/ambx_stage.py indicators --typical {input.typ} "
-        "--conditioned {input.cond} --output {output}"
+        "python3 workflow/scripts/ambx_stage.py indicators --config {params.cfg} "
+        "--typical {input.typ} --conditioned {input.cond} --output {output}"
 
 
 rule comparison:
