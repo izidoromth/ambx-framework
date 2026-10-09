@@ -16,7 +16,6 @@ from pathlib import Path
 import geopandas as gpd
 import requests
 
-
 URL = "https://ippuc.org.br/geodownloads/SHAPES_SIRGAS/AREA_VERDE_2019_SIRGAS.zip"
 ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = ROOT / "scripts" / "etl" / "cache_area_verde"

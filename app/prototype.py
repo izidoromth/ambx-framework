@@ -14,8 +14,9 @@ from pathlib import Path
 # Adiciona scripts/ ao path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "../scripts"))
 
-import folium
 import multiprocessing as mp
+
+import folium
 import streamlit as st
 from streamlit_folium import st_folium
 
@@ -25,7 +26,7 @@ try:
 except RuntimeError:
     pass  # já setado ou plataforma sem fork (macOS/Windows)
 
-from ambx.grid import generate_grid, GridFormat
+from ambx.grid import GridFormat, generate_grid
 from ambx.network import (
     add_travel_time,
     get_graph_edges,
@@ -34,7 +35,7 @@ from ambx.network import (
     snap_grid_to_network,
 )
 from ambx.pois import get_pois
-from ambx.routing import snap_pois_to_network, routing_matrix
+from ambx.routing import routing_matrix, snap_pois_to_network
 
 # ---------------------------------------------------------------------------
 # Configuração da página

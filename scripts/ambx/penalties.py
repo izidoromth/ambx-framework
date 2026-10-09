@@ -12,8 +12,9 @@ fator multiplicador do custo da aresta.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import geopandas as gpd
 import numpy as np
@@ -21,10 +22,8 @@ import pandas as pd
 import rasterio
 from rasterio.sample import sample_gen
 from rasterio.warp import transform as rio_transform
-from shapely.geometry import LineString, Point
 
 from ambx.environment import EnvironmentLayers, RasterLayer, VectorLayer
-
 
 # ---------------------------------------------------------------------------
 # Estruturas de configuração
@@ -182,7 +181,7 @@ def _segment_factors(
                 cut_params.extend(
                     edge_geom.project(g, normalized=True) for g in geom.geoms
                 )
-    cut_params = sorted(set(round(p, 12) for p in cut_params))
+    cut_params = sorted({round(p, 12) for p in cut_params})
 
     segs = []
     interdict = False

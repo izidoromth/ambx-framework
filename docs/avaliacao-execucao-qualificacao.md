@@ -60,8 +60,10 @@ Destaques para quem retomar o código:
 **Testes:** `tests/` contém 9 testes (`test_composite_penalty`, `test_cost_modifier_smoke`,
 `test_geoparquet_penalty`) — **todos passando**.
 
-> ⚠️ A **penalização composta** existe na lib e está testada, mas **ainda não é
-> utilizada pelo workflow** (ver Seção 5, item 1).
+> ✅ A **penalização composta** existe na lib, está testada e já está integrada ao
+> workflow no cenário `lst_green_composite` de Curitiba. Ainda falta validar sua
+> execução ponta a ponta com os dados reais e comparar seus resultados com a
+> semântica de regras separadas usada em `lst_green`.
 >
 > ⚠️ Por decisão de design, `comparison` e `inequality` **foram retirados do escopo
 > da lib** (ver `README.md`). Isso cria a principal lacuna: as Etapas 3 (validação
@@ -164,7 +166,9 @@ Destaques para quem retomar o código:
    o YAML aceita `input_type: composite` (com `layers` + `inputs`) e o
    `ambx_stage.py` monta a `PenaltyRule` correspondente. Cenário
    `lst_green_composite` adicionado ao lado de `lst_green`. Ver Seção 5, item 1,
-   para o resultado medido da comparação entre as duas semânticas.
+   para o resultado medido da comparação entre as duas semânticas. A integração
+   está implementada; permanece pendente a execução ponta a ponta e a análise
+   empírica dos resultados.
 
 7. **Calibração/parametrização da função de penalização.**
    As funções agora vivem em `workflow/rules/` (`curitiba_lst`, `curitiba_green_modifier`,

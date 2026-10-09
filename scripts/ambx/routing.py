@@ -9,13 +9,13 @@ espaciais projetados em CRS métrico).
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from math import sqrt
+
 import geopandas as gpd
 import networkx as nx
 import numpy as np
 import pandas as pd
-from math import sqrt
-from typing import Callable
-
 
 # ---------------------------------------------------------------------------
 # Globais para paralelismo (multiprocessing.Pool com initializer)
@@ -321,12 +321,11 @@ def routing_matrix(
             initargs=(graph, weight, speed_kph),
         ) as pool:
             travel_times = [None] * len(tasks)
-            done = 0
-            for idx, tt in pool.imap_unordered(
-                _astar_task, tasks, chunksize=chunksize
+            for done, (idx, tt) in enumerate(
+                pool.imap_unordered(_astar_task, tasks, chunksize=chunksize),
+                start=1,
             ):
                 travel_times[idx] = tt
-                done += 1
                 if done % max(1, len(tasks) // 100) == 0 or done == len(tasks):
                     print(f"  [A*] {done}/{len(tasks)} pares concluídos", flush=True)
     else:

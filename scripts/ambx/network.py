@@ -11,8 +11,6 @@ from __future__ import annotations
 import geopandas as gpd
 import networkx as nx
 import osmnx as ox
-import pandas as pd
-from shapely.geometry import Point
 
 from ambx.utils import utm_crs
 

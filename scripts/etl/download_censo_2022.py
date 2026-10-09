@@ -127,8 +127,7 @@ def _download(url: str, dest: Path) -> None:
     r = requests.get(url, stream=True, timeout=300)
     r.raise_for_status()
     with open(dest, "wb") as f:
-        for chunk in r.iter_content(chunk_size=8192):
-            f.write(chunk)
+        f.writelines(r.iter_content(chunk_size=8192))
     print(f"{dest.stat().st_size / 1e6:.1f} MB")
 
 
@@ -176,7 +175,7 @@ def main():
 
     # 1. Dictionaries
     print("\n[Dictionaries]")
-    for name, url in DICTIONARIES.items():
+    for url in DICTIONARIES.values():
         _download(url, CACHE / url.split("/")[-1])
 
     dic_census = CACHE / DICTIONARIES["census"].split("/")[-1]
@@ -184,7 +183,7 @@ def main():
 
     # 2. Data files
     print("\n[Data files]")
-    for name, url in FILES.items():
+    for url in FILES.values():
         _download(url, CACHE / url.split("/")[-1])
 
     # 3. Census tract geometries (malha com atributos do IBGE)
@@ -271,7 +270,7 @@ def main():
     print("  Done!")
     print(f"  Folder: {DATA_PROCESSED}")
     print(f"    censo_2022.geoparquet  ({size:.1f} MB, {len(gdf.columns)} columns)")
-    print(f"    metadados.json")
+    print("    metadados.json")
     print(f"  Cache: {CACHE}")
     print(f"{'=' * 60}")
 

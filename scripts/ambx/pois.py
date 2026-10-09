@@ -13,7 +13,6 @@ from typing import Any
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
-from shapely.geometry import Point
 
 from ambx.utils import utm_crs
 
@@ -101,7 +100,7 @@ def get_pois(
     for category_name, tag_filter in categories.items():
         try:
             gdf = ox.features_from_polygon(search_poly, tags=tag_filter)
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 — OSM pode falhar por categoria/área
             # Categoria pode não retornar nada na área
             continue
 

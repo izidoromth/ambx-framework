@@ -1,15 +1,15 @@
 """Teste mínimo do uso de GeoParquet como camada de penalização."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from ambx.environment import EnvironmentLayers, load_vector  # noqa: E402
-from ambx.penalties import PenaltyRule, compose_penalties  # noqa: E402
+from ambx.environment import EnvironmentLayers, load_vector
+from ambx.penalties import PenaltyRule, compose_penalties
 
 
 def test_geoparquet_vector_penalty(tmp_path):

@@ -25,7 +25,7 @@ import pandas as pd
 import rasterio
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import transform_bounds
-from shapely.geometry import box, Polygon
+from shapely.geometry import Polygon, box
 
 from ambx.utils import utm_crs
 
@@ -234,9 +234,9 @@ def load_vector(
         )
 
     # Reprojeção se necessário
-    if expected_crs is not None and gdf.crs is not None:
-        if gdf.crs.to_string() != expected_crs:
-            gdf = gdf.to_crs(expected_crs)
+    if (expected_crs is not None and gdf.crs is not None
+            and gdf.crs.to_string() != expected_crs):
+        gdf = gdf.to_crs(expected_crs)
 
     # Recorte espacial
     if clip_geometry is not None:
@@ -287,9 +287,9 @@ def load_vector_from_gdf(
     """
     gdf = gdf.copy()
 
-    if expected_crs is not None and gdf.crs is not None:
-        if gdf.crs.to_string() != expected_crs:
-            gdf = gdf.to_crs(expected_crs)
+    if (expected_crs is not None and gdf.crs is not None
+            and gdf.crs.to_string() != expected_crs):
+        gdf = gdf.to_crs(expected_crs)
 
     if clip_geometry is not None:
         clip_gdf = gpd.GeoDataFrame(geometry=[clip_geometry], crs=aoi_crs)
@@ -423,7 +423,7 @@ def load_raster(
 
         # Reprojetar o array se dst_crs for diferente do CRS original
         if dst_crs and src.crs and src.crs.to_string() != dst_crs:
-            from rasterio.warp import reproject, Resampling, calculate_default_transform
+            from rasterio.warp import Resampling, calculate_default_transform, reproject
 
             # Prepara bounds de saída no CRS destino
             left, bottom, right, top = out_bounds
@@ -558,14 +558,13 @@ def raster_stats_for_geometry(
         Valor da estatística, ou ``None`` se a geometria não
         interceptar o raster.
     """
-    import rasterio.features
 
     if isinstance(geometry, gpd.GeoDataFrame):
         geometry = geometry.geometry.union_all()
 
     # Transformar geometria para o CRS do raster
-    from shapely.ops import transform as shapely_transform
     import pyproj
+    from shapely.ops import transform as shapely_transform
 
     geom_crs = _get_crs_str(geometry)
     if geom_crs and geom_crs != raster.crs:
@@ -586,7 +585,7 @@ def raster_stats_for_geometry(
             width=raster.data.shape[1],
             nodata=raster.nodata or 0,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — falhas de recorte retornam None
         return None
 
     masked = np.ma.MaskedArray(

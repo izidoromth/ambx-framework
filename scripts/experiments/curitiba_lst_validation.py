@@ -19,26 +19,36 @@ Uso:
     python notebooks/pipeline_curitiba_lst.py
 """
 
-import sys, time, warnings, os
+import os
+import sys
+import time
+import warnings
+
+import folium
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import networkx as nx
-import folium
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-from ambx.grid import generate_grid, GridFormat
-from ambx.network import (
-    add_travel_time, get_network, get_graph_edges,
-    project_network, snap_grid_to_network,
+from ambx.environment import build_environment
+from ambx.grid import GridFormat, generate_grid
+from ambx.indicators import (
+    compute_all_indicators,
+    compute_gini,
+    compute_pth,
+    compute_pth_wide,
 )
-from ambx.pois import get_pois
-from ambx.routing import snap_pois_to_network, routing_matrix
-from ambx.environment import load_raster, build_environment
+from ambx.network import (
+    add_travel_time,
+    get_graph_edges,
+    get_network,
+    project_network,
+    snap_grid_to_network,
+)
 from ambx.penalties import PenaltyRule, compose_penalties
-from ambx.indicators import compute_pth, compute_pth_wide, compute_gini, compute_f15, compute_all_indicators
+from ambx.pois import get_pois
+from ambx.routing import routing_matrix, snap_pois_to_network
 
 warnings.filterwarnings("ignore")
 np.random.seed(42)
@@ -66,7 +76,7 @@ def lst_penalty(t):
     return 2.0
 
 print(f"{'='*60}")
-print(f"  ambx — Pipeline Curitiba com Penalização LST")
+print("  ambx — Pipeline Curitiba com Penalização LST")
 print(f"{'='*60}")
 print(f"  Malha: {GRID_FORMAT.value}, {CELL_SIZE}m")
 print(f"  Rede: {NETWORK_TYPE} ({SPEED_HPH} km/h)")
@@ -231,7 +241,7 @@ if len(pct_pos):
     print(f"  Aumento relativo médio: {pct_pos.mean():.1f}%  "
           f"(máx: {pct_pos.max():.1f}%)")
 
-print(f"\n  Δ médio por categoria:")
+print("\n  Δ médio por categoria:")
 cat_delta = comp.groupby(cat_col)["delta_t"].mean().sort_values(ascending=False)
 for cat, val in cat_delta.items():
     print(f"    {cat:18s}: {val:.2f} min")
@@ -320,7 +330,7 @@ plot_categorico(axes[2], cells_plot, "delta_avg", q_delta, "YlOrRd",
 
 plt.tight_layout()
 plt.savefig("notebooks/comparacao_curitiba_lst.png", dpi=150, bbox_inches="tight")
-print(f"  Figura salva: notebooks/comparacao_curitiba_lst.png")
+print("  Figura salva: notebooks/comparacao_curitiba_lst.png")
 plt.close()
 
 # Histograma
@@ -334,7 +344,7 @@ ax.set_xlabel("Tempo de viagem (min)"); ax.set_ylabel("Frequência")
 ax.set_title("Distribuição dos Tempos de Viagem"); ax.legend()
 plt.tight_layout()
 plt.savefig("notebooks/histograma_curitiba_lst.png", dpi=150, bbox_inches="tight")
-print(f"  Histograma salvo: notebooks/histograma_curitiba_lst.png")
+print("  Histograma salvo: notebooks/histograma_curitiba_lst.png")
 plt.close()
 
 # ===================================================================
@@ -369,7 +379,7 @@ for cat in pth_wide_typ.columns:
 
 # F15 (sem dados censitários ainda — pula)
 print("\n  F15:  N/A (população por célula ainda não disponível —")
-print(f"         depende do módulo demographics)")
+print("         depende do módulo demographics)")
 
 # compute_all_indicators — teste do orquestrador
 print("\n  compute_all_indicators (apenas típico, sem population):")
@@ -383,7 +393,7 @@ print(f"    f15_typ:      {result['f15_typ']}  (vazio, sem population)")
 # RESUMO FINAL
 # ===================================================================
 print(f"\n{'='*60}")
-print(f"  RESUMO — Curitiba com Penalização LST")
+print("  RESUMO — Curitiba com Penalização LST")
 print(f"{'='*60}")
 print(f"  Malha:          {len(grid)} células ({GRID_FORMAT.value}, {CELL_SIZE}m)")
 print(f"  POIs:           {len(pois)} ({cats.shape[0]} categorias)")

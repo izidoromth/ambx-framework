@@ -1,15 +1,15 @@
 """Smoke test da composição de penalização e atenuação."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
-from ambx.environment import EnvironmentLayers, load_vector  # noqa: E402
-from ambx.penalties import CostModifier, compose_penalties  # noqa: E402
+from ambx.environment import EnvironmentLayers, load_vector
+from ambx.penalties import CostModifier, compose_penalties
 
 
 def test_penalty_and_mitigation_are_composed(tmp_path):

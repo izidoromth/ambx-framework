@@ -1,0 +1,5 @@
+[tool.ruff]
+# Os notebooks são artefatos exploratórios e dependem de estado compartilhado
+# entre células; o Ruff os analisa isoladamente e produz falsos positivos para
+# variáveis criadas em células anteriores.
+exclude = ["notebooks"]

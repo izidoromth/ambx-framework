@@ -1,7 +1,11 @@
 """Stages used by the first Snakemake workflow version."""
 from __future__ import annotations
 
-import argparse, importlib, json, pickle, sys
+import argparse
+import importlib
+import json
+import pickle
+import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -14,13 +18,19 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT))
 
-from ambx.grid import generate_grid, GridFormat
-from ambx.network import add_travel_time, get_graph_edges, get_network, project_network, snap_grid_to_network
+from ambx.environment import build_environment
+from ambx.grid import GridFormat, generate_grid
+from ambx.indicators import compute_all_indicators
+from ambx.network import (
+    add_travel_time,
+    get_graph_edges,
+    get_network,
+    project_network,
+    snap_grid_to_network,
+)
+from ambx.penalties import PenaltyRule, compose_penalties
 from ambx.pois import get_pois
 from ambx.routing import routing_matrix, snap_pois_to_network
-from ambx.environment import build_environment
-from ambx.penalties import PenaltyRule, compose_penalties
-from ambx.indicators import compute_all_indicators
 
 
 def cfg(path):

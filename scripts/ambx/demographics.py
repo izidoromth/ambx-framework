@@ -31,7 +31,6 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from shapely import area as shapely_area
 
 
 def load_tracts(
@@ -47,7 +46,8 @@ def load_tracts(
     Parameters
     ----------
     path : str | Path
-        Caminho para o arquivo ``.gpkg`` (GeoParquet).
+        Caminho para o arquivo GeoParquet (normalmente ``.parquet`` ou
+        ``.geoparquet``).
     columns : list[str] | None
         Colunas a carregar (além da geometria). ``None`` carrega todas.
     city_codes : list[str] | None
@@ -146,7 +146,6 @@ def interpolate_to_grid(
     cell_col = "cell_idx" if "cell_idx" in cells.columns else cells.columns[0]
 
     # ── 3. Extrair arrays ─────────────────────────────────────────
-    t_ids   = tracts.index.astype(str).tolist()
     t_geoms = tracts.geometry.values
     t_areas = np.array([g.area for g in t_geoms])
     t_vals  = values.astype(float).to_numpy()
