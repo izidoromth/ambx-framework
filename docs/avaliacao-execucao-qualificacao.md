@@ -6,7 +6,8 @@
 > **Revisão 4 — 10/10/2026.** Revisão de consistência do documento contra o
 > repositório: workflow de Curitiba já executado (4 cenários), contrato do
 > `PenaltyRule` unificado em `layers`, docstring de `demographics.load_tracts`
-> corrigida, status das dependências de análise conferido.
+> corrigida, `grid` como input explícito de `route_conditioned`, código morto de
+> `environment.py` removido, status das dependências de análise conferido.
 >
 > **Revisão 3 — 03/10/2026.** Consolida o diagnóstico e a agenda de execução.
 > Absorveu e substituiu os antigos `plano-implementacao-use-cases.md` e
@@ -61,6 +62,12 @@ Destaques para quem retomar o código:
   `multiprocessing.Pool`.
 - **`indicators`** — `compute_pth`, `compute_pth_wide`, `compute_gini`, `compute_f15`,
   `compute_all_indicators`. O F15 **exige** `population`; sem ela o resultado sai vazio.
+- **`environment`** — `load_vector`, `load_vector_from_gdf`, `load_raster`,
+  `build_environment`. ⚠️ A **amostragem de raster não vive aqui**: as funções
+  auxiliares (`raster_stats_for_geometry`, `sample_raster_at_points`,
+  `load_raster_from_array`) foram **removidas em 10/10/2026** por serem código morto.
+  A amostragem real está em `penalties._sample_composite_raster`, que é o caminho
+  testado.
 
 **Testes:** `tests/` contém 9 testes (`test_composite_penalty`, `test_cost_modifier_smoke`,
 `test_geoparquet_penalty`) — **todos passando**.
@@ -136,10 +143,14 @@ Destaques para quem retomar o código:
 
 ## 4. O que está faltando (lacunas)
 
+> Itens já fechados saíram daqui e estão indexados na Seção 5.1, para esta lista
+> refletir só o que ainda falta.
+
 ### 4.1 Etapa 1 — Preparação de Dados
 
-1. ~~**Censo Demográfico 2022.**~~ ✅ **Resolvido**: `data/processed/censo_2022/censo_2022.geoparquet`
-   (+ `metadados.json`) já foi gerado pelo ETL. **Falta conectá-lo ao workflow**:
+1. **Conectar o Censo 2022 ao workflow.** O arquivo já existe
+   (`data/processed/censo_2022/censo_2022.geoparquet`, + `metadados.json`), mas não
+   chega às células. Falta:
    - Filtrar os municípios (Curitiba `4106902`, Porto Alegre `4314902`).
    - Aplicar `demographics.interpolate_to_grid` para obter **população/renda/escolaridade
      por célula** (insumo do F15 e da regressão).
@@ -162,21 +173,9 @@ Destaques para quem retomar o código:
    `LST_Anual_2026_221077_Mediana.tif`. Falta documentar produto, sensor, data e
    resolução (metadados), para garantir reprodutibilidade.
 
-5. ~~**Área verde de Curitiba.**~~ ✅ **Resolvido**:
-   `data/processed/curitiba/area_verde_2019.geoparquet` (+ `.json`) já foi gerado pelo
-   ETL (`download_area_verde_curitiba.py`).
-
 ### 4.2 Etapa 2 — Implementação Computacional
 
-6. ~~**Ligar a penalização composta ao workflow.**~~ ✅ **Resolvido (03/10/2026):**
-   o YAML aceita `input_type: composite` (com `layers` + `inputs`) e o
-   `ambx_stage.py` monta a `PenaltyRule` correspondente. Cenário
-   `lst_green_composite` adicionado ao lado de `lst_green`. Ver Seção 5, item 1,
-   para o resultado medido da comparação entre as duas semânticas. A execução
-   ponta a ponta já foi feita para Curitiba (ver item 9); falta a leitura
-   analítica dos resultados e a execução de Porto Alegre.
-
-7. **Calibração/parametrização da função de penalização.**
+5. **Calibração/parametrização da função de penalização.**
    As funções agora vivem em `workflow/rules/` (`curitiba_lst`, `curitiba_green_modifier`,
    `porto_alegre_*`), mas os valores são **hardcoded** (ex.: LST com limiares
    25/27/30 °C → 1.0/1.2/1.5/2.0). A proposta exige calibrar a forma funcional
@@ -185,24 +184,20 @@ Destaques para quem retomar o código:
    - Parametrizar as funções pela configuração (yaml) em vez de valores fixos no código.
    - Rodar análise de sensibilidade dos parâmetros.
 
-8. **Cobertura de testes.** A suíte atual tem 9 testes (composite, smoke de modificador
+6. **Cobertura de testes.** A suíte atual tem 9 testes (composite, smoke de modificador
    de custo, geoparquet). Faltam testes para `indicators`, `demographics` e `routing`
    (módulos críticos).
 
 ### 4.3 Etapa 3 — Aplicação Experimental
 
-9. ~~**Executar o workflow de ponta a ponta.**~~ ✅ **Curitiba resolvido (03/10/2026):**
-   a pipeline de Curitiba roda completa (4 cenários: `typical`, `lst`, `lst_green`,
-   `lst_green_composite`), gerando matrizes, indicadores, comparações e figuras em
-   `results/curitiba/`. **Falta Porto Alegre** — `results/porto_alegre/` não existe
-   e nenhum cenário de POA foi executado. Falta também registrar/versionar os
-   artefatos e definir os metadados de execução (item da Etapa A.4).
+7. **Executar o workflow de Porto Alegre.** Curitiba já roda completa (4 cenários);
+   `results/porto_alegre/` **não existe** e nenhum cenário de POA foi executado.
+   Falta também registrar/versionar os artefatos e definir os metadados de execução
+   (item da Etapa A.4).
 
-10. **F15 nos indicadores do workflow.**
+8. **F15 nos indicadores do workflow.**
     A regra `indicators` chama `compute_all_indicators(...)` **sem população**.
-    Consequência: `f15_typ`/`f15_cond` saem vazios. Falta:
-    - Passar `population` (interpolação do censo) para a regra.
-    - ✅ O `k` já vem do config (`k_nearest`), corrigido em 03/10/2026.
+    Consequência: `f15_typ`/`f15_cond` saem vazios. Depende do item 1.
 
 ### 4.4 Etapa 4 — Análise Socioespacial (maior lacuna)
 
@@ -217,22 +212,22 @@ A proposta define explicitamente:
 
 Faltam, portanto:
 
-11. **Testes de significância** das mudanças de tempo entre cenários
+9. **Testes de significância** das mudanças de tempo entre cenários
     (ex.: teste de hipóteses pareado/permutação) — não implementado em lugar algum.
 
-12. **Mapas de manchas de degradação** via associação local/clusterização espacial
+10. **Mapas de manchas de degradação** via associação local/clusterização espacial
     (LISA/PySAL). As dependências `esda`/`libpysal`/`splot` **não estão instaladas**.
 
-13. **Regressão linear** (PTh e ΔPTh como variáveis dependentes). A dependência
+11. **Regressão linear** (PTh e ΔPTh como variáveis dependentes). A dependência
     `statsmodels` **não está instalada**. Pode ser implementada como notebooks/scripts
     de análise (fora da lib), mas **precisa existir**.
 
-14. **Clusterização socioespacial** (regiões adjacentes e homogêneas em atributos
+12. **Clusterização socioespacial** (regiões adjacentes e homogêneas em atributos
     socioeconômicos + acessibilidade). `scikit-learn` **não está nas dependências** e
     não há implementação.
 
-15. **Integração completa com o Censo** (população/renda/escolaridade por célula),
-    pré-requisito dos itens 10, 13 e 14.
+13. **Integração completa com o Censo** (população/renda/escolaridade por célula),
+    pré-requisito dos itens 8, 11 e 12.
 
 > **Observação de coerência:** o README declara que `comparison` e `inequality`
 > "saíram do escopo da lib". Isso é razoável como arquitetura, mas **a proposta de
@@ -241,34 +236,40 @@ Faltam, portanto:
 
 ### 4.5 Etapa 5 — Redação e Revisão
 
-16. **Preencher `docs/qualifying/sections/5.results.tex`.** Hoje só há "Resultados
+14. **Preencher `docs/qualifying/sections/5.results.tex`.** Hoje só há "Resultados
     Parciais" (artigo SBBD) e "Resultados Esperados". Falta a seção de **resultados
     reais** dos experimentos (Curitiba LST/verde e Porto Alegre), com tabelas, mapas,
     valores de PTh/Gini/F15 e as análises de regressão/clusterização.
 
-17. **Coletânea de artigos para defesa.** A Etapa 5 prevê a consolidação da coletânea;
+15. **Coletânea de artigos para defesa.** A Etapa 5 prevê a consolidação da coletânea;
     ainda não iniciada.
 
 ---
 
 ## 5. Inconsistências técnicas e riscos detectados
 
-### 5.1 Corrigidos (10/10/2026)
+### 5.1 Corrigidos (03–10/10/2026)
 
-Detalhe completo das correções no `git log`. Resumo do que foi feito, para não
-reabrir a investigação:
+Dez correções já fecharam. O detalhe de cada uma está no `git log`; aqui fica só o
+índice, para não reabrir investigação encerrada:
 
-| # | Assunto | Correção |
-|:-:|---------|----------|
-| 1 | **Contrato do `PenaltyRule`** | Unificado em `layers: list[str]` (obrigatório, primeiro posicional). `layer_name` e o helper `layer_names()` foram removidos. Regra simples = lista de 1 elemento; `compose_penalties` valida `len(rule.layers) == 1` para tipos não-compostos. Eliminou a ambiguidade do `name` no YAML (rótulo nas simples, nome de camada nas compostas) que causava `Camadas não encontradas: ['lst', 'area_verde']`. **Quebra de API:** call sites migrados em `scripts/ambx/penalties.py`, `workflow/scripts/ambx_stage.py`, 3 arquivos de `tests/`, notebook e 2 scripts de experimento. 9/9 testes e pipeline 10/10 jobs. |
-| 2 | **CRS em `_sample_composite_raster`** | Coordenadas agora são transformadas para o CRS do **arquivo de origem** (`rio_transform`). Antes, com raster reprojetado para UTM pelo `build_environment`, a amostragem lia pixels errados. Teste: `test_composite_raster_transforms_to_source_crs`. |
-| 3 | **Desempenho da amostragem composta** | Amostragem **em lote**: raster aberto 1× (era N×) e vetorial via `gpd.sjoin` (era `iterrows`). Benchmark 3.000 arestas: ~6,3 s → ~0,65 s. |
-| 4 | **`k` hardcoded nos indicadores** | A regra `indicators` agora recebe `--config` e lê `k_nearest`, como o `route` já fazia. |
-| 5 | **`weight_field` sem guard** | As três `apply_*` resolvem o campo internamente (`rule.weight_field or weight_field or "travel_time"`). Regra com `weight_field=None` não quebra mais. |
-| 6 | **`compose_penalties` mutava a regra** | Mutação removida; o fallback é propagado por parâmetro. Teste: `test_compose_penalties_does_not_mutate_rule`. |
-| 7 | **Semântica mista na composição** | Convenção definida (abaixo). Testes: `test_composite_passes_nan_for_uncovered_points`, `test_composite_dict_always_contains_all_keys`. |
-| 8 | **Docstring imprecisa em `demographics.load_tracts`** | O docstring descrevia entrada `.gpkg`, mas a leitura é `gpd.read_parquet`. Texto corrigido para GeoParquet (`.parquet`/`.geoparquet`). |
-| 9 | **`grid` como input implícito em `route_conditioned`** | O stage inferia o caminho por `Path(a.snapped).parent / "grid.parquet"`, fora do DAG. Agora `grid.parquet` é input declarado da regra e chega por `--grid`; o stage valida a presença do argumento em cenários condicionados. Efeito verificado: alterar o grid agenda os 3 cenários condicionados e deixa `route_typical` intocado. |
+**Lib `penalties`** — contrato do `PenaltyRule` unificado em `layers: list[str]`
+(removeu `layer_name`/`layer_names()`; quebra de API, call sites migrados);
+CRS corrigido em `_sample_composite_raster` (transforma para o CRS do arquivo de
+origem via `rio_transform`); amostragem em lote (~6,3 s → ~0,65 s em 3.000 arestas);
+`weight_field` com guard nas três `apply_*`; `compose_penalties` não muta mais a
+regra; convenção de ausência definida (ver abaixo).
+
+**Workflow** — `k` dos indicadores vindo do config (`k_nearest`); `grid.parquet`
+declarado como input explícito de `route_conditioned` (antes inferido por
+`Path(a.snapped).parent / "grid.parquet"`, fora do DAG).
+
+**Higiene** — docstring de `demographics.load_tracts` corrigida (descrevia `.gpkg`,
+lê `read_parquet`); código morto removido de `environment.py`
+(`raster_stats_for_geometry`, `sample_raster_at_points`, `load_raster_from_array`,
+`_get_crs_str` — nenhuma tinha call site; a primeira nunca funcionou, pois chamava
+`rio_mask` com assinatura inválida e engolia o `TypeError` devolvendo `None`).
+766 → 570 linhas.
 
 **Convenção de ausência em regras compostas** (importante para quem escrever
 `penalty_fn`):
@@ -317,16 +318,11 @@ reabrir a investigação:
    condicionado, mas a regra não contabiliza/expõe explicitamente os "pares perdidos"
    (o script de experimento faz isso; o workflow, não).
 
-3. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
-   (`environment.py`), mascarando pixels de valor `0` legítimo. A função **não é usada
-   em lugar nenhum** e está marcada como não testada — inofensiva hoje, mas é uma
-   armadilha latente.
-
-4. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
+3. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
    (poluição de stdout no Snakemake). Em Linux (fork) funciona; em Windows/macOS o
    `multiprocessing` com `spawn` pode falhar sem o guard.
 
-5. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
+4. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
     Em `_segment_factors` (`penalties.py`), os pontos de corte vêm de
     `edge_geom.intersection(polygon.boundary)` e apenas geometrias `Point`/`MultiPoint`
     são consideradas. Quando a aresta corre **sobre** um trecho da borda — comum em redes
@@ -391,6 +387,8 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
 
 ### 6.3 Checklist
 
+> Numeração dos itens remete à Seção 4.
+
 **Concluído:**
 
 - [x] Baixar o Censo 2022 e gerar `censo_2022.geoparquet`.
@@ -404,25 +402,27 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
 - [x] Experimento de trade-off da amostragem composta.
 - [x] Contrato do `PenaltyRule` unificado em `layers` (removeu `layer_name`).
 - [x] Executar o workflow de Curitiba (4 cenários) — 16/16 jobs, 4m25s.
+- [x] `grid` como input explícito de `route_conditioned`.
+- [x] Remover código morto de `environment.py` (3 funções sem call site).
 
 **Bloqueadores (sem eles a proposta não fecha):**
 
-- [ ] **Conectar população ao workflow** e habilitar **F15** nos indicadores (`k` vindo do config).
-- [ ] **Executar o workflow de Porto Alegre** e registrar `results/porto_alegre/`.
-- [ ] **Definir `run_config`/metadados** de cada execução.
+- [ ] **4.1** — Conectar o Censo à malha (população/renda/escolaridade por célula).
+- [ ] **4.3** — Executar o workflow de Porto Alegre e registrar `results/porto_alegre/`.
+- [ ] **4.3** — Definir `run_config`/metadados de cada execução.
 
 **Etapa 4 (análise socioespacial) — implementar como scripts/notebooks:**
 
-- [ ] Testes de significância das variações de tempo (típico vs condicionado).
-- [ ] Mapas de manchas de degradação (LISA/clusterização espacial — instalar
+- [ ] **4.4** — Testes de significância das variações de tempo (típico vs condicionado).
+- [ ] **4.4** — Mapas de manchas de degradação (LISA/clusterização espacial — instalar
       `esda`/`libpysal`/`splot`).
-- [ ] Regressão linear (PTh, ΔPTh × renda, escolaridade, densidade) — instalar
+- [ ] **4.4** — Regressão linear (PTh, ΔPTh × renda, escolaridade, densidade) — instalar
       `statsmodels`.
-- [ ] Agrupamento socioespacial (contíguo e homogêneo)
+- [ ] **4.4** — Agrupamento socioespacial (contíguo e homogêneo).
 
 **Consolidação e reprodução:**
 
-- [ ] Parametrizar as funções de penalização no config e documentar a calibração.
+- [ ] **4.2** — Parametrizar as funções de penalização no config e documentar a calibração.
 - [ ] Preencher `sections/5.results.tex` com os resultados reais.
 - [ ] Ampliar a cobertura de testes (`indicators`, `demographics`, `routing`).
 - [ ] Registar proveniência do raster LST (produto, sensor, data, resolução).

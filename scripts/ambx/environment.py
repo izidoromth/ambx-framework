@@ -17,11 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
 
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 import rasterio
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import transform_bounds
@@ -312,14 +310,6 @@ def load_vector_from_gdf(
 # ---------------------------------------------------------------------------
 # Leitura de camadas raster
 # ---------------------------------------------------------------------------
-# TODO (não testado): Toda a seção de raster abaixo ainda não foi
-# testada com dados reais. Inclui:
-#   - load_raster (recorte por geometria, bounding box, reprojeção)
-#   - load_raster_from_array
-#   - raster_stats_for_geometry
-#   - sample_raster_at_points
-#   - build_environment (parte de raster_paths)
-# ---------------------------------------------------------------------------
 
 
 def load_raster(
@@ -468,194 +458,6 @@ def load_raster(
             nodata=nodata,
             source_path=str(path.resolve()),
         )
-
-
-# TODO (não testado)
-def load_raster_from_array(
-    data: np.ndarray,
-    bounds: tuple[float, float, float, float],
-    crs: str,
-    name: str = "raster_layer",
-    nodata: float | None = None,
-) -> RasterLayer:
-    """
-    Cria uma ``RasterLayer`` a partir de um array NumPy.
-
-    Útil para quando o raster já está em memória (ex.: resultado de
-    processamento, dados de API, etc.).
-
-    Parameters
-    ----------
-    data : np.ndarray
-        Array 2D com os valores.
-    bounds : tuple[float, float, float, float]
-        Limites geográficos ``(minx, miny, maxx, maxy)`` no CRS.
-    crs : str
-        CRS do raster.
-    name : str, default "raster_layer"
-        Nome descritivo da camada.
-    nodata : float | None, default None
-        Valor nodata.
-
-    Returns
-    -------
-    RasterLayer
-    """
-    if data.ndim == 3:
-        data = data.squeeze()
-    if data.ndim != 2:
-        raise ValueError(f"Array deve ser 2D, mas tem shape {data.shape}")
-
-    height, width = data.shape
-    minx, miny, maxx, maxy = bounds
-
-    transform = rasterio.Affine(
-        (maxx - minx) / width,
-        0.0,
-        minx,
-        0.0,
-        -(maxy - miny) / height,
-        maxy,
-    )
-
-    return RasterLayer(
-        name=name,
-        data=data,
-        bounds=bounds,
-        crs=crs,
-        transform=transform,
-        nodata=nodata,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Funções auxiliares
-# ---------------------------------------------------------------------------
-
-
-# TODO (não testado)
-def raster_stats_for_geometry(
-    raster: RasterLayer,
-    geometry: Polygon | gpd.GeoDataFrame,
-    statistic: Literal["mean", "sum", "min", "max", "std"] = "mean",
-) -> float | None:
-    """
-    Calcula uma estatística zonal dos valores do raster para uma
-    geometria.
-
-    Parameters
-    ----------
-    raster : RasterLayer
-        Camada raster a ser amostrada.
-    geometry : Polygon | gpd.GeoDataFrame
-        Geometria sobre a qual calcular a estatística.
-    statistic : Literal["mean", "sum", "min", "max", "std"], default "mean"
-        Estatística a ser calculada.
-
-    Returns
-    -------
-    float | None
-        Valor da estatística, ou ``None`` se a geometria não
-        interceptar o raster.
-    """
-
-    if isinstance(geometry, gpd.GeoDataFrame):
-        geometry = geometry.geometry.union_all()
-
-    # Transformar geometria para o CRS do raster
-    import pyproj
-    from shapely.ops import transform as shapely_transform
-
-    geom_crs = _get_crs_str(geometry)
-    if geom_crs and geom_crs != raster.crs:
-        project = pyproj.Transformer.from_crs(
-            geom_crs, raster.crs, always_xy=True
-        ).transform
-        geometry = shapely_transform(project, geometry)
-
-    # Extrair pixels sob a geometria
-    try:
-        out_image, _ = rio_mask(
-            None,
-            [geometry],
-            crop=True,
-            all_touched=True,
-            transform=raster.transform,
-            height=raster.data.shape[0],
-            width=raster.data.shape[1],
-            nodata=raster.nodata or 0,
-        )
-    except Exception:  # noqa: BLE001 — falhas de recorte retornam None
-        return None
-
-    masked = np.ma.MaskedArray(
-        out_image.squeeze(),
-        mask=(out_image.squeeze() == raster.nodata) if raster.nodata is not None else False,
-    )
-
-    if masked.count() == 0:
-        return None
-
-    stats_map = {
-        "mean": masked.mean(),
-        "sum": masked.sum(),
-        "min": masked.min(),
-        "max": masked.max(),
-        "std": masked.std(),
-    }
-
-    return float(stats_map.get(statistic, masked.mean()))
-
-
-# TODO (não testado)
-def sample_raster_at_points(
-    raster: RasterLayer,
-    points: gpd.GeoDataFrame,
-    column_name: str | None = None,
-) -> pd.Series:
-    """
-    Amostra os valores do raster nas coordenadas dos pontos.
-
-    Parameters
-    ----------
-    raster : RasterLayer
-        Camada raster.
-    points : gpd.GeoDataFrame
-        Pontos de amostragem (qualquer CRS).
-    column_name : str | None, default None
-        Nome para a coluna resultante. Se ``None``, usa o
-        nome do raster.
-
-    Returns
-    -------
-    pd.Series
-        Série com os valores amostrados, indexada pelo índice
-        de ``points``.
-    """
-    from rasterio.sample import sample_gen
-
-    # Projetar pontos para o CRS do raster
-    pts_utm = points.to_crs(raster.crs) if points.crs else points
-
-    coords = [(pt.x, pt.y) for pt in pts_utm.geometry]
-    samples = list(sample_gen(raster.data, coords, transform=raster.transform))
-
-    values = [
-        s[0] if s[0] != raster.nodata else np.nan
-        for s in samples
-    ]
-
-    col_name = column_name or raster.name
-    return pd.Series(values, index=points.index, name=col_name, dtype=float)
-
-
-def _get_crs_str(geometry: Any) -> str | None:
-    """Extrai o CRS como string de uma geometria ou GeoDataFrame."""
-    if isinstance(geometry, gpd.GeoDataFrame):
-        return geometry.crs.to_string() if geometry.crs else None
-    if hasattr(geometry, "crs"):
-        return geometry.crs.to_string() if geometry.crs else None
-    return None
 
 
 # ---------------------------------------------------------------------------
