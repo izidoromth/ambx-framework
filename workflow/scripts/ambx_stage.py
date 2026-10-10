@@ -159,8 +159,10 @@ def route(a):
     with open(a.graph, "rb") as f: graph = pickle.load(f)
     snapped = gpd.read_parquet(a.snapped); pois = gpd.read_parquet(a.pois)
     if a.scenario != "typical":
+        if not getattr(a, "grid", None):
+            raise ValueError("O cenário condicionado exige --grid")
         edges = gpd.read_parquet(a.edges)
-        grid = gpd.read_parquet(str(Path(a.snapped).parent / "grid.parquet"))
+        grid = gpd.read_parquet(a.grid)
         scenario_cfg = c.get("scenarios", {}).get(a.scenario, {})
         rules_cfg = scenario_cfg.get("penalties", [])
         if not rules_cfg:
@@ -283,7 +285,7 @@ def figure_typical(a):
 def main():
     p = argparse.ArgumentParser(); sub = p.add_subparsers(dest="stage", required=True)
     q = sub.add_parser("prepare"); q.add_argument("--config"); q.add_argument("--grid"); q.add_argument("--pois"); q.add_argument("--pois-snapped"); q.add_argument("--snapped"); q.add_argument("--graph"); q.add_argument("--edges"); q.set_defaults(fn=prepare)
-    q = sub.add_parser("route"); q.add_argument("--scenario"); q.add_argument("--config"); q.add_argument("--snapped"); q.add_argument("--pois"); q.add_argument("--graph"); q.add_argument("--edges"); q.add_argument("--output"); q.set_defaults(fn=route)
+    q = sub.add_parser("route"); q.add_argument("--scenario"); q.add_argument("--config"); q.add_argument("--snapped"); q.add_argument("--pois"); q.add_argument("--graph"); q.add_argument("--edges"); q.add_argument("--grid"); q.add_argument("--output"); q.set_defaults(fn=route)
     q = sub.add_parser("comparison"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=comparison)
     q = sub.add_parser("indicators"); q.add_argument("--config"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=indicators)
     q = sub.add_parser("figure-typical"); q.add_argument("--matrix"); q.add_argument("--grid"); q.add_argument("--output"); q.set_defaults(fn=figure_typical)

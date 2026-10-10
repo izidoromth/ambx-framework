@@ -3,6 +3,11 @@
 > Documento de diagnóstico. Base de referência: `docs/proposta_qualificacao.pdf`
 > (proposta da qualificação).
 >
+> **Revisão 4 — 10/10/2026.** Revisão de consistência do documento contra o
+> repositório: workflow de Curitiba já executado (4 cenários), contrato do
+> `PenaltyRule` unificado em `layers`, docstring de `demographics.load_tracts`
+> corrigida, status das dependências de análise conferido.
+>
 > **Revisão 3 — 03/10/2026.** Consolida o diagnóstico e a agenda de execução.
 > Absorveu e substituiu os antigos `plano-implementacao-use-cases.md` e
 > `proximos-passos.md` (removidos).
@@ -61,8 +66,8 @@ Destaques para quem retomar o código:
 `test_geoparquet_penalty`) — **todos passando**.
 
 > ✅ A **penalização composta** existe na lib, está testada e já está integrada ao
-> workflow no cenário `lst_green_composite` de Curitiba. Ainda falta validar sua
-> execução ponta a ponta com os dados reais e comparar seus resultados com a
+> workflow no cenário `lst_green_composite` de Curitiba, que **já foi executado**.
+> Falta a leitura analítica dos resultados e a comparação sistemática com a
 > semântica de regras separadas usada em `lst_green`.
 >
 > ⚠️ Por decisão de design, `comparison` e `inequality` **foram retirados do escopo
@@ -90,7 +95,8 @@ Destaques para quem retomar o código:
   `comparison_<cenario>.parquet`, figuras.
 - **A pipeline de Porto Alegre (penalização vetorial) já está contemplada** no mesmo
   Snakefile/config.
-- `results/` **não existe** → o workflow ainda **não foi executado**.
+- `results/curitiba/` **já existe** (4 cenários executados em 03/10/2026);
+  `results/porto_alegre/` **não existe** → a pipeline de POA **ainda não foi executada**.
 
 ### 2.3 Dados disponíveis
 
@@ -122,7 +128,7 @@ Destaques para quem retomar o código:
 |-------------------|-------|:------:|----------------------|
 | 1. Preparação de Dados | Junho | 🟢 Quase completa | Censo, área verde e camadas de POA OK; falta a documentação da origem do LST |
 | 2. Implementação Computacional | Julho | 🟢 Quase completa | Calibrar a função de penalização e rodar análise de sensibilidade |
-| 3. Aplicação Experimental | Agosto | 🔴 Incompleta | Workflow nunca executado (`results/` vazio); F15 sem população |
+| 3. Aplicação Experimental | Agosto | � Parcial | Curitiba executado com sucesso (4 cenários); **Porto Alegre não executado**; F15 sem população |
 | 4. Análise Socioespacial | Setembro | 🔴 Ausente | Regressão, testes estatísticos, clusterização/mapas de manchas, integração do censo às células |
 | 5. Redação e Revisão | Outubro | 🟡 Parcial | Resultados reais ainda não incorporados; coletânea de artigos |
 
@@ -166,9 +172,9 @@ Destaques para quem retomar o código:
    o YAML aceita `input_type: composite` (com `layers` + `inputs`) e o
    `ambx_stage.py` monta a `PenaltyRule` correspondente. Cenário
    `lst_green_composite` adicionado ao lado de `lst_green`. Ver Seção 5, item 1,
-   para o resultado medido da comparação entre as duas semânticas. A integração
-   está implementada; permanece pendente a execução ponta a ponta e a análise
-   empírica dos resultados.
+   para o resultado medido da comparação entre as duas semânticas. A execução
+   ponta a ponta já foi feita para Curitiba (ver item 9); falta a leitura
+   analítica dos resultados e a execução de Porto Alegre.
 
 7. **Calibração/parametrização da função de penalização.**
    As funções agora vivem em `workflow/rules/` (`curitiba_lst`, `curitiba_green_modifier`,
@@ -185,9 +191,12 @@ Destaques para quem retomar o código:
 
 ### 4.3 Etapa 3 — Aplicação Experimental
 
-9. **Executar o workflow de ponta a ponta.** `results/` está vazio. É necessário rodar
-   o Snakemake para Curitiba (todos os cenários) e Porto Alegre, e versionar/registrar
-   os artefatos (matrizes, indicadores, figuras).
+9. ~~**Executar o workflow de ponta a ponta.**~~ ✅ **Curitiba resolvido (03/10/2026):**
+   a pipeline de Curitiba roda completa (4 cenários: `typical`, `lst`, `lst_green`,
+   `lst_green_composite`), gerando matrizes, indicadores, comparações e figuras em
+   `results/curitiba/`. **Falta Porto Alegre** — `results/porto_alegre/` não existe
+   e nenhum cenário de POA foi executado. Falta também registrar/versionar os
+   artefatos e definir os metadados de execução (item da Etapa A.4).
 
 10. **F15 nos indicadores do workflow.**
     A regra `indicators` chama `compute_all_indicators(...)` **sem população**.
@@ -244,7 +253,7 @@ Faltam, portanto:
 
 ## 5. Inconsistências técnicas e riscos detectados
 
-### 5.1 Corrigidos (03/10/2026)
+### 5.1 Corrigidos (10/10/2026)
 
 Detalhe completo das correções no `git log`. Resumo do que foi feito, para não
 reabrir a investigação:
@@ -258,6 +267,8 @@ reabrir a investigação:
 | 5 | **`weight_field` sem guard** | As três `apply_*` resolvem o campo internamente (`rule.weight_field or weight_field or "travel_time"`). Regra com `weight_field=None` não quebra mais. |
 | 6 | **`compose_penalties` mutava a regra** | Mutação removida; o fallback é propagado por parâmetro. Teste: `test_compose_penalties_does_not_mutate_rule`. |
 | 7 | **Semântica mista na composição** | Convenção definida (abaixo). Testes: `test_composite_passes_nan_for_uncovered_points`, `test_composite_dict_always_contains_all_keys`. |
+| 8 | **Docstring imprecisa em `demographics.load_tracts`** | O docstring descrevia entrada `.gpkg`, mas a leitura é `gpd.read_parquet`. Texto corrigido para GeoParquet (`.parquet`/`.geoparquet`). |
+| 9 | **`grid` como input implícito em `route_conditioned`** | O stage inferia o caminho por `Path(a.snapped).parent / "grid.parquet"`, fora do DAG. Agora `grid.parquet` é input declarado da regra e chega por `--grid`; o stage valida a presença do argumento em cenários condicionados. Efeito verificado: alterar o grid agenda os 3 cenários condicionados e deixa `route_typical` intocado. |
 
 **Convenção de ausência em regras compostas** (importante para quem escrever
 `penalty_fn`):
@@ -306,23 +317,16 @@ reabrir a investigação:
    condicionado, mas a regra não contabiliza/expõe explicitamente os "pares perdidos"
    (o script de experimento faz isso; o workflow, não).
 
-3. **Acoplamento frágil em `route` (condicionado).** O caminho do grid é inferido de
-   `Path(a.snapped).parent / "grid.parquet"`. Funciona, mas depende do layout de
-   saída do `prepare`. Melhor declarar `grid` como input explícito da regra.
-
-4. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
+3. **`raster_stats_for_geometry` usa `nodata=0`** quando o raster não declara nodata
    (`environment.py`), mascarando pixels de valor `0` legítimo. A função **não é usada
    em lugar nenhum** e está marcada como não testada — inofensiva hoje, mas é uma
    armadilha latente.
 
-5. **Docstrings com pequenas imprecisões:** `demographics.load_tracts` descreve
-   entrada `.gpkg`, mas lê `read_parquet`.
-
-6. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
+4. **`routing.py` sem guard `if __name__ == "__main__"`** e com `print`s espalhados
    (poluição de stdout no Snakemake). Em Linux (fork) funciona; em Windows/macOS o
    `multiprocessing` com `spawn` pode falhar sem o guard.
 
-7. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
+5. **Partição de aresta falha quando a aresta é colinear à borda do polígono.**
     Em `_segment_factors` (`penalties.py`), os pontos de corte vêm de
     `edge_geom.intersection(polygon.boundary)` e apenas geometrias `Point`/`MultiPoint`
     são consideradas. Quando a aresta corre **sobre** um trecho da borda — comum em redes
@@ -353,6 +357,7 @@ resultados comparáveis e reprodutíveis.
    população** na regra `indicators` (com `k` vindo do config).
 3. Executar os cenários e validar: mesmo esquema de dados, mesmas categorias e
    unidades, matrizes e indicadores válidos, mapas com escalas comparáveis.
+   → **Curitiba ✅ (03/10/2026)**; Porto Alegre pendente.
 4. Definir o registro de `run_config` e dos metadados de cada execução (rastreabilidade).
 
 **Critério de conclusão:** os quatro cenários executam pelo mesmo workflow a partir de
@@ -397,11 +402,13 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
 - [x] `k` dos indicadores vindo do config (`k_nearest`), em vez de `k=3` fixo.
 - [x] Penalização composta ligada ao workflow (cenário `lst_green_composite`).
 - [x] Experimento de trade-off da amostragem composta.
+- [x] Contrato do `PenaltyRule` unificado em `layers` (removeu `layer_name`).
+- [x] Executar o workflow de Curitiba (4 cenários) — 16/16 jobs, 4m25s.
 
 **Bloqueadores (sem eles a proposta não fecha):**
 
 - [ ] **Conectar população ao workflow** e habilitar **F15** nos indicadores (`k` vindo do config).
-- [ ] **Executar o workflow** de Curitiba e Porto Alegre e registrar `results/`.
+- [ ] **Executar o workflow de Porto Alegre** e registrar `results/porto_alegre/`.
 - [ ] **Definir `run_config`/metadados** de cada execução.
 
 **Etapa 4 (análise socioespacial) — implementar como scripts/notebooks:**
@@ -411,7 +418,7 @@ seus YAMLs, com resultados comparáveis. A etapa socioeconômica só começa dep
       `esda`/`libpysal`/`splot`).
 - [ ] Regressão linear (PTh, ΔPTh × renda, escolaridade, densidade) — instalar
       `statsmodels`.
-- [ ] Agrupamento socioespacial (contíguo e homogêneo) — instalar `scikit-learn`.
+- [ ] Agrupamento socioespacial (contíguo e homogêneo)
 
 **Consolidação e reprodução:**
 

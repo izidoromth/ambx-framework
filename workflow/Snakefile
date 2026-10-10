@@ -71,6 +71,7 @@ rule route_conditioned:
         pois=f"{OUT_DIR}/prepared/pois_snapped.parquet",
         graph=f"{OUT_DIR}/prepared/graph.pkl",
         edges=f"{OUT_DIR}/prepared/edges.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
         penalty_inputs=lambda wildcards: scenario_inputs(wildcards.scenario)
     output: f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
     params: cfg=CONFIG_PATH
@@ -79,7 +80,8 @@ rule route_conditioned:
     shell:
         "python3 workflow/scripts/ambx_stage.py route --scenario {wildcards.scenario} "
         "--config {params.cfg} --snapped {input.snapped} --pois {input.pois} "
-        "--graph {input.graph} --edges {input.edges} --output {output}"
+        "--graph {input.graph} --edges {input.edges} --grid {input.grid} "
+        "--output {output}"
 
 
 rule indicators:
