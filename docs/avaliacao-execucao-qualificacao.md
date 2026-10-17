@@ -27,8 +27,8 @@ Caso de uso: cruzar a perda de acessibilidade com dados socioeconômicos — *on
 | # | Etapa | Estado | Pendências |
 |---|---|:--:|---|
 | 1 | Preparação de Dados | 🟢 | Documentar proveniência do raster LST (produto, sensor, data, resolução) |
-| 2 | Implementação Computacional | 🟢 | Parametrizar e calibrar as penalizações no YAML (hoje hardcoded); testes de `indicators`, `demographics`, `routing` |
-| 3 | Aplicação Experimental | 🟡 | Executar Porto Alegre; F15 sem população; `run_config` das execuções |
+| 2 | Implementação Computacional | 🟢 | Testes de `indicators`, `demographics`, `routing` |
+| 3 | Aplicação Experimental | 🟡 | F15 sem população; `run_config` das execuções |
 | 4 | Análise Socioespacial | 🔴 | Tudo: significância, regressão, LISA, agrupamento, IVS |
 | 5 | Redação e Revisão | 🟡 | Preencher `sections/5.results.tex`; coletânea de artigos |
 
@@ -47,8 +47,10 @@ Caso de uso: cruzar a perda de acessibilidade com dados socioeconômicos — *on
 **Workflow** — um `Snakefile` para todas as cidades; `--configfile
 workflow/config/<cidade>.yaml`. Penalizações em `workflow/rules/`, importadas pelo YAML.
 
-- Curitiba: `typical`, `lst`, `lst_green`, `lst_green_composite` → ✅ executado (03/10).
-- Porto Alegre: `typical`, `inundacao`, `movimento_massa`, `combinado` → ❌ nunca rodado.
+- Curitiba: `typical`, `lst`, `lst_green_composite`, `lst_demo_k05`,
+  `lst_green_composite_demo_k05` → ✅ executado (17/10).
+- Porto Alegre: `typical`, `inundacao`, `movimento_massa`, `combinado` → ✅ executado
+  (17/10).
 
 **Testes** — 9, todos passando (`test_composite_penalty`, `test_cost_modifier_smoke`,
 `test_geoparquet_penalty`).

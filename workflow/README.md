@@ -16,9 +16,11 @@ Cada YAML reúne todos os cenários da respectiva cidade. Não é necessário cr
 Curitiba:
 
 ```text
-typical     referência sem penalização
-lst         penalização associada à temperatura da superfície
-lst_green   LST com atenuação associada à presença de área verde
+typical                       referência sem penalização
+lst                           penalização associada à temperatura da superfície
+lst_green_composite           LST composta com área verde (atenua só onde há calor)
+lst_demo_k05                  demonstrativo, k = 0,05/°C (sem respaldo empírico)
+lst_green_composite_demo_k05  demonstrativo composto com área verde
 ```
 
 Porto Alegre:
@@ -44,7 +46,7 @@ snakemake --version
 
 O arquivo `workflow/config/base.yaml` é uma configuração vazia usada internamente pelo `Snakefile`. O arquivo da cidade deve ser informado explicitamente com `--configfile`.
 
-Antes de executar Curitiba com `lst_green`, confirme que existe:
+Antes de executar Curitiba com `lst_green_composite`, confirme que existe:
 
 ```text
 data/processed/curitiba/area_verde_2019.geoparquet
@@ -71,7 +73,11 @@ Também é gerado um arquivo de metadados:
 data/processed/curitiba/area_verde_2019.json
 ```
 
-O ZIP baixado e os arquivos extraídos ficam no cache local `scripts/etl/cache_area_verde/`. Esse cache pode ser reutilizado em execuções posteriores. Depois da geração, o cenário `lst_green` pode ser executado normalmente.
+O ZIP baixado e os arquivos extraídos ficam no cache local `scripts/etl/cache_area_verde/`. Esse cache pode ser reutilizado em execuções posteriores. Depois da geração, o cenário `lst_green_composite` pode ser executado normalmente.
+
+> O verde só é aplicado em regra **composta**. Encadear duas regras simples
+> (`lst` + modificador de verde) descontaria o custo também em pontos amenos,
+> onde o calor não é um problema — por isso esse cenário não existe.
 
 ## Verificar uma execução
 
@@ -153,8 +159,7 @@ results/<cidade>/
 ├── comparison_<cenario>.parquet
 └── figures/
     ├── map_typical.png
-    ├── comparison_<cenario>.png
-    └── delta_time_<cenario>_histogram.png
+    └── comparison_<cenario>.png
 ```
 
 Os nomes `<cidade>` e `<cenario>` são substituídos pelos valores definidos no YAML.

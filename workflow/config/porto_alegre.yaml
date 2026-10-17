@@ -13,6 +13,8 @@ output_dir: results/porto_alegre
 scenarios:
   typical: {}
 
+  # Inundação: penaliza (atrasa), nunca bloqueia. Fatores finitos calibrados
+  # por Xu et al. (2026): classe Alto = 2,0 (velocidade cai ~45% a 0,35 m).
   inundacao:
     penalties:
       - name: inundacao
@@ -23,6 +25,8 @@ scenarios:
         value_field: classe
         aggregation: mean
 
+  # Deslizamento: cenário de evento ocorrido. Interdita (inf) as áreas Alta e
+  # Média, onde o fenômeno bloqueia a via — não há literatura para lentidão.
   movimento_massa:
     penalties:
       - name: movimento_massa
@@ -33,6 +37,8 @@ scenarios:
         value_field: classe
         aggregation: mean
 
+  # Ambos os eventos simultâneos. A composição é multiplicativa: a interdição
+  # do deslizamento (inf) domina a penalização da inundação na mesma aresta.
   combinado:
     penalties:
       - name: inundacao

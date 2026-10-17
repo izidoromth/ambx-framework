@@ -219,11 +219,18 @@ def figures(a):
     cells = grid.merge(stats, on="cell_idx", how="left")
     Path(a.comparison_figure).parent.mkdir(parents=True, exist_ok=True)
 
-    def plot_categorico(ax, column, bins, cmap_name, title):
+    def plot_categorico(ax, column, bins, cmap_name, title, inacessivel=None):
         labels = [f"{bins[i]:.1f}–{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
         faixa = f"{column}_faixa"
-        cells[faixa] = pd.cut(cells[column], bins=bins, labels=labels,
-                              include_lowest=True, right=True)
+        # A coluna nasce como string (não como Categorical de `pd.cut`), para
+        # aceitar a categoria extra "inacessível" — `inf` não entra nos bins,
+        # porque `pd.cut` exige bins monótonos e `inf` quebra o último intervalo.
+        faixas = pd.cut(cells[column], bins=bins, labels=labels,
+                        include_lowest=True, right=True).astype(object)
+        if inacessivel is not None:
+            faixas = faixas.where(~inacessivel, "inacessível")
+        ordem = labels + (["inacessível"] if inacessivel is not None else [])
+        cells[faixa] = pd.Categorical(faixas, categories=ordem, ordered=True)
         cells.plot(column=faixa, cmap=cmap_name, legend=True, ax=ax,
                    edgecolor="white", linewidth=0.1,
                    missing_kwds={"color": "lightgrey", "label": "Sem dados"},
@@ -232,10 +239,15 @@ def figures(a):
         ax.set_axis_off()
 
     n_quantiles = 7
-    vals_typ = cells["avg_time_typ"].dropna()
+    vals_typ = cells["avg_time_typ"].replace([np.inf, -np.inf], np.nan).dropna()
     bins_typ = sorted(set(np.quantile(vals_typ, np.linspace(0, 1, n_quantiles + 1))))
     if len(bins_typ) < 3:
         bins_typ = [vals_typ.min(), vals_typ.max()]
+
+    # Células que perderam o acesso: tempo condicionado infinito.
+    inacessivel = cells["avg_time_cond"].replace(-np.inf, np.nan).eq(np.inf)
+    cells.loc[inacessivel, "delta_avg"] = np.nan
+    cells.loc[inacessivel, "avg_time_cond"] = np.nan
 
     delta_vals = cells["delta_avg"].dropna()
     bins_delta = sorted(set(np.quantile(delta_vals, np.linspace(0, 1, n_quantiles + 1))))
@@ -248,22 +260,11 @@ def figures(a):
     plot_categorico(axes[0], "avg_time_typ", bins_typ, "RdYlBu_r",
                     "Tempo médio — típico")
     plot_categorico(axes[1], "avg_time_cond", bins_typ, "RdYlBu_r",
-                    "Tempo médio — condicionado (LST)")
+                    "Tempo médio — condicionado", inacessivel=inacessivel)
     plot_categorico(axes[2], "delta_avg", bins_delta, "YlOrRd",
-                    "Δ tempo (condicionado − típico)")
+                    "Δ tempo (condicionado − típico)", inacessivel=inacessivel)
     plt.tight_layout()
     fig.savefig(a.comparison_figure, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-    # O histograma é um segundo produto declarado pelo Snakemake.
-    fig, ax = plt.subplots(figsize=(10, 6))
-    delta_vals.plot.hist(bins=30, ax=ax, color="darkorange", edgecolor="white")
-    ax.axvline(0, color="black", linewidth=1, linestyle="--")
-    ax.set_title("Distribuição da variação do tempo de acesso")
-    ax.set_xlabel("Δ tempo (condicionado − típico)")
-    ax.set_ylabel("Número de células")
-    fig.tight_layout()
-    fig.savefig(a.histogram, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -289,7 +290,7 @@ def main():
     q = sub.add_parser("comparison"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=comparison)
     q = sub.add_parser("indicators"); q.add_argument("--config"); q.add_argument("--typical"); q.add_argument("--conditioned"); q.add_argument("--output"); q.set_defaults(fn=indicators)
     q = sub.add_parser("figure-typical"); q.add_argument("--matrix"); q.add_argument("--grid"); q.add_argument("--output"); q.set_defaults(fn=figure_typical)
-    q = sub.add_parser("figures"); q.add_argument("--comparison"); q.add_argument("--grid"); q.add_argument("--comparison-figure"); q.add_argument("--histogram"); q.set_defaults(fn=figures)
+    q = sub.add_parser("figures"); q.add_argument("--comparison"); q.add_argument("--grid"); q.add_argument("--comparison-figure"); q.set_defaults(fn=figures)
     a = p.parse_args(); a.fn(a)
 
 

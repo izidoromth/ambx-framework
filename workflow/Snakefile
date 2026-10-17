@@ -32,7 +32,6 @@ rule all:
                 f"{OUT_DIR}/indicators_{scenario}.json",
                 f"{OUT_DIR}/comparison_{scenario}.parquet",
                 f"{OUT_DIR}/figures/comparison_{scenario}.png",
-                f"{OUT_DIR}/figures/delta_time_{scenario}_histogram.png",
             ]
         ]
 
@@ -114,14 +113,12 @@ rule figures:
         comparison=f"{OUT_DIR}/comparison_{{scenario}}.parquet",
         grid=f"{OUT_DIR}/prepared/grid.parquet"
     output:
-        comparison=f"{OUT_DIR}/figures/comparison_{{scenario}}.png",
-        histogram=f"{OUT_DIR}/figures/delta_time_{{scenario}}_histogram.png"
+        comparison=f"{OUT_DIR}/figures/comparison_{{scenario}}.png"
     wildcard_constraints:
         scenario="|".join(CONDITIONED_SCENARIOS)
     shell:
         "python3 workflow/scripts/ambx_stage.py figures --comparison {input.comparison} "
-        "--grid {input.grid} --comparison-figure {output.comparison} "
-        "--histogram {output.histogram}"
+        "--grid {input.grid} --comparison-figure {output.comparison}"
 
 
 rule figures_typical:

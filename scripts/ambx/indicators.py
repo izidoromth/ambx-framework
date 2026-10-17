@@ -307,6 +307,7 @@ def compute_all_indicators(
 
         gini_by_cat = {}
         f15_by_cat = {}
+        perdidos_by_cat = {}
 
         for cat in pth_wide.columns:
             vals = pth_wide[cat].dropna()
@@ -318,11 +319,25 @@ def compute_all_indicators(
                     vals, pop_aligned, threshold=threshold,
                 )
 
+            # Perda de acesso: células que existem na malha mas não têm
+            # nenhum POI alcançável. `compute_pth` devolve NaN para elas —
+            # não são "tempo alto", são ausência de acesso, por isso ficam
+            # fora do Gini e do PTh médio, mas são contadas aqui.
+            total_cells = matrix[cell_col].nunique()
+            alcançaveis = len(vals)
+            perdidos_by_cat[cat] = {
+                "n_inacessiveis": int(total_cells - alcançaveis),
+                "pct_inacessiveis": round(
+                    100.0 * (total_cells - alcançaveis) / total_cells, 2
+                ) if total_cells else 0.0,
+            }
+
         return {
             f"pth_{suffix}": pth_long,
             f"pth_wide_{suffix}": pth_wide,
             f"gini_{suffix}": gini_by_cat,
             f"f15_{suffix}": f15_by_cat,
+            f"perda_acesso_{suffix}": perdidos_by_cat,
         }
 
     result.update(_indicators_for_scenario(matrix_typ, "typ"))
