@@ -1,6 +1,6 @@
 # Avaliação do Repositório — Estado Atual e Lacunas
 
-> Diagnóstico. Base: `docs/proposta_qualificacao.pdf`.
+> Diagnóstico. Base: `docs/qualifying/proposta_qualificacao.pdf`.
 > Agenda, decisões e convenções: `proximos-passos.md`.
 
 **14/10/2026.**

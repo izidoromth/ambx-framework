@@ -235,7 +235,7 @@ então, comparar ou cruzar com dados socioeconômicos).
 - Hansen, W. G. (1959). *How accessibility shapes land use*. Journal of the American Institute of Planners.
 - Geurs, K. T. & van Wee, B. (2004). *Accessibility evaluation of land-use and transport strategies*. Journal of Transport Geography.
 - Cook, S. et al. (2022). *More than walking and cycling: What is 'active travel'?* Transport Policy.
-- Lista completa em [`docs/qualifying/refs.bib`](docs/qualifying/refs.bib).
+- Lista completa em [`docs/dissertation/refs.bib`](docs/dissertation/refs.bib).
 
 ---
 
