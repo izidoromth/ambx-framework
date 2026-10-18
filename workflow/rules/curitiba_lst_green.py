@@ -34,7 +34,12 @@ def _compose(values, k, t0, atenuacao):
 def curitiba_lst_green(values):
     """Calibrado: atenua em 25% o excesso térmico onde há área verde.
 
-    A parcela térmica vem de :func:`lst_factor` (Huang 2018). A atenuação de
-    0,75 é **arbitrária** — não há fonte para ela.
+    A parcela térmica vem de :func:`lst_factor` (Horiuchi 2018). A **direção**
+    da atenuação tem fonte: Jia et al. (2023) mediram que árvores de rua
+    reduzem o tempo de viagem percebido em até 3 s/100 m, e que a velocidade de
+    caminhada cai com o estresse térmico (R² = 0,719).
+
+    A **magnitude** de 0,75 é **arbitrária**: Jia fornece o sinal, não o fator.
+    Pendente derivar a atenuação dos 3 s/100 m.
     """
     return _compose(values, k=0.0070, t0=23.0, atenuacao=0.75)

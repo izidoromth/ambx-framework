@@ -4,8 +4,8 @@
 
 - Conectar o Censo à malha: **IVS** por célula (4 eixos, §Decisões) e habilitar o F15
   ponderado pela população na regra `indicators`.
-- Completar os autores das referências adicionadas em `refs.bib` (Huang, Sousa, Xu,
-  Lin, Naserikia, Chen) — hoje estão com `author={Sobrenome, ...}`.
+- Completar os autores das referências adicionadas em `refs.bib` (Horiuchi, Nascimento, Li,
+  Qin, Naserikia, Jia).
 - Definir `run_config`/metadados de cada execução.
 - Análise socioespacial: significância, regressão, LISA, agrupamento — como
   scripts/notebooks, não na lib.
@@ -23,7 +23,7 @@
   `demographics.interpolate_to_grid` (setor → célula). Não haverá `socioeconomic.py`.
 - POIs vêm **exclusivamente do OSM**.
 - **Penalização térmica:** linear, `f(T) = clip(1 + 0,0070·(T − 23), 1, 2)`.
-  `k` e `t0` vêm ambos de Huang et al. (2018); a LST entra como proxy ordinal de T_ar.
+  `k` e `t0` vêm ambos de Horiuchi et al. (2018); a LST entra como proxy ordinal de T_ar.
 - **Movimento de massa** é interdição (`inf`), não lentidão: é bloqueio de via.
 - **Cenários demonstrativos** têm sufixo `_demo_kNN` (`lst_demo_k05`) e existem para
   evidenciar o mecanismo da lib; nunca substituem o resultado principal.
@@ -47,33 +47,54 @@ Função linear: `f(T) = clip(1 + k·(T − t0), 1, fmax)`.
 
 **Justificativa em três saltos** (cada um declarado na dissertação):
 
-1. **LST → T_ar** (Sousa et al., 2022, São Paulo): r = 0,81/0,82; MAE 1,2–1,9 °C.
+1. **LST → T_ar** (Nascimento et al., 2022, São Paulo): r = 0,81/0,82; MAE 1,2–1,9 °C.
    Sustenta LST como *proxy ordinal* de calor, não conversão.
-2. **T_ar → velocidade** (Huang et al., 2018): −7% em "economical speed" de
+2. **T_ar → velocidade** (Horiuchi et al., 2018): −7% em "economical speed" de
    23 → 33 °C ⇒ **k = 0,0070/°C**.
-   Apoio qualitativo: Chen et al. (2023), +3 s/100 m com calor e ausência de árvore.
+   Apoio: Jia et al. (2023), velocidade cai com estresse térmico (R² = 0,719) e árvore.
 3. **Salto assumido:** aplicar `k` de T_ar diretamente sobre LST (equivale a `b = 1`
    na relação LST–T_ar).
 
+**O que Jia et al. (2023) sustenta** (*E3S Web of Conferences* 396:05013, Hong Kong):
+337 pedestres monitorados em campo, com dados climáticos simultâneos.
+
+- **Velocidade cai com o estresse térmico** — é a única fonte encontrada que mede
+  velocidade de pedestres reais contra desconforto térmico, e não contra temperatura
+  do ar isolada.
+- **R² = 0,719** (regressão polinomial), 0,907 (ANN), 0,931 (DNN) — a relação entre
+  estresse térmico e velocidade é forte e predizível.
+- **Árvores reduzem o tempo de viagem percebido em até 3 s/100 m** — sustenta
+  qualitativamente a atenuação por área verde.
+- **Limite:** mede *percepção* térmica (UTCI, temperatura radiante média), não LST.
+  Serve como ponte metodológica, não como coeficiente.
+
 **Limitações a declarar:**
-- Nenhum estudo regride velocidade diretamente sobre LST (Lin et al., 2024 usa LST
+- Nenhum estudo regride velocidade diretamente sobre LST (Qin et al., 2024 usa LST
   para *ciclismo*, não caminhada).
-- Sousa não publica slope, apenas r e MAE; ΔLST construído–rural = 5,8–11,5 °C no
+- Nascimento não publica slope, apenas r e MAE; ΔLST construído–rural = 5,8–11,5 °C no
   verão, ou seja, o viés é **espacialmente sistemático** e maior onde o calor importa.
-- Huang é população jovem saudável, em câmara; não pedestres reais.
+- Horiuchi é população jovem saudável, em câmara; não pedestres reais.
+- Jia observa pedestres reais em Hong Kong, mas em clima subtropical úmido.
 
 **Formulação de uso:** a penalização é **índice ordinal de exposição térmica**,
-calibrada pela sensibilidade de Huang (2018); a magnitude é indicativa, não preditiva.
+calibrada pela sensibilidade de Horiuchi (2018); a magnitude é indicativa, não preditiva.
 
-**Parâmetros:** `k = 0,0070` (Huang 2018); `t0 = 23 °C` (referência termoneutra de
-Huang 2018); `fmax = 2,0` (arbitrário — só salvaguarda contra pixel anômalo; a 50 °C
+**Parâmetros:** `k = 0,0070` (Horiuchi 2018); `t0 = 23 °C` (referência termoneutra de
+Horiuchi 2018); `fmax = 2,0` (arbitrário — só salvaguarda contra pixel anômalo; a 50 °C
 o fator é 1,19, então o teto não atua em dado realista).
 
 **Curva calibrada:** 25 °C → 1,014 | 30 → 1,049 | 35 → 1,084 | 40 → 1,119.
 
 **Composto com área verde:** o verde atenua **apenas o excesso sobre 1,0**
 (`1 + (f − 1)·0,75`), nunca a linha de base — senão ponto quente com verde ficaria
-mais barato que o típico. A atenuação de **0,75 é arbitrária** (sem fonte).
+mais barato que o típico.
+
+A **direção** da atenuação tem fonte: Jia et al. (2023) mediram, em Hong Kong, que
+árvores de rua reduzem o tempo de viagem percebido em até **3 s/100 m**, e que a
+velocidade de caminhada cai com o estresse térmico (R² = 0,719).
+A **magnitude** de 0,75 é arbitrária e deve ser calibrada — Jia fornece o sinal, não
+o fator. **Pendente:** derivar a atenuação a partir dos 3 s/100 m, convertendo para
+fator multiplicativo sobre a penalização térmica.
 
 **Camada de área verde:** o produto é um **raster binário de 5 m** com dilatação de
 5 m, gerado pelo ETL. A fonte vetorial (126 mil polígonos, 756 MB) não é usada: as
@@ -101,7 +122,7 @@ domina a penalização de inundação na mesma aresta.
 
 **Inundação (`porto_alegre_inundacao`): penaliza, não bloqueia.** Água na via
 atrasa a caminhada, mas é transponível. A classe `Alto` recebe fator **2,0**,
-calibrado por Xu et al. (2026, *Acta Polytechnica CTU*): 188 participantes, e a
+calibrado por Li et al. (2026, *Acta Polytechnica CTU*): 188 participantes, e a
 0,35 m de lâmina d'água a velocidade caiu **38,6% (homens) e 44,8% (mulheres)**.
 Fator = 1/(1 − 0,448) = 1,81 → arredondado para 2,0 (metade da velocidade).
 `Médio` (1,5) e `Baixa` (1,1) **não têm fonte** — interpolação arbitrária.

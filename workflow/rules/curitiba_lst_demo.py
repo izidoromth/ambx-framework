@@ -1,6 +1,6 @@
 """Cenário demonstrativo de Curitiba (``lst_demo_k05``).
 
-`k = 0,05/°C`, cerca de 7× a calibração de Huang et al. (2018). Existe para
+`k = 0,05/°C`, cerca de 7× a calibração de Horiuchi et al. (2018). Existe para
 evidenciar a resposta da lib a um gradiente térmico severo; **não tem respaldo
 empírico** e não deve ser apresentado como resultado.
 """
