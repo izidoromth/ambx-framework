@@ -30,3 +30,7 @@
   manutenção do deslocamento a pé.
 - `8.conclusion`: a preencher.
 - Revisar o tempo verbal de `1.introduction` (presente impessoal).
+
+## Decisões
+
+- **Onde fica a análise socioeconômica?** Hoje está fora do texto, porque a seção 4 ficou só com o mecanismo. Opções: (a) seção própria "Análise Socioespacial"; (b) subseção de `6.results`, declarando que roda em `scripts/`/notebooks, fora da lib. A opção (b) preserva a lib como contribuição e evita uma nona seção.
