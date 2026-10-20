@@ -10,23 +10,26 @@ cada escolha.
   camadas e parâmetros.
 - Um cenário pode usar várias penalizações, aplicadas **na ordem** declarada no YAML.
 - Resultados tabulares em **Parquet**; cada execução preserva sua configuração.
-- `comparison`/`inequality` e o **IVS** ficam **fora da lib**. A lib expõe só
+- `comparison`/`inequality` e os **IDS** ficam **fora da lib**. A lib expõe só
   `demographics.interpolate_to_grid` (setor → célula). Não haverá `socioeconomic.py`.
 - POIs vêm **exclusivamente do OSM**.
 
-## IVS — 4 eixos
+## IDS
 
-Formados **no setor, antes de interpolar** (razão de agregados não comuta com
-ponderação por área):
+O índice é formado **no setor, antes de interpolar** (razão de agregados não
+comuta com ponderação por área). O `IDS` combina renda, alfabetização e
+desigualdade racial territorial. Os eixos são normalizados por município e
+recebem o mesmo peso:
 
 | Eixo | Fórmula | Orientação |
 |---|---|---|
-| `frac_preta_parda` | `(V01318 + V01320) / V01006` | maior = mais vulnerável |
+| `frac_preta_parda` | `(V01318 + V01320) / V01006` | dimensão racial territorial |
 | `renda` | `log1p(V06004)` | invertido |
-| `dep_idoso` | `Σ(V00654..V00656) / Σ(V00644..V00656)` | maior = mais vulnerável |
 | `taxa_alf` | `Σ(V00748..V00760) / V01006` | invertido |
 
-`V01006` = pop. total; `V01318`/`V01320` = preta/parda; `V00644..V00656` = 15+
+`IDS = (frac_preta_parda + renda + taxa_alf) / 3`, após a normalização.
+`V01006` = pop. total;
+`V01318`/`V01320` = preta/parda; `V00644..V00656` = 15+
 (dos quais `V00654..V00656` = 60+); `V00748..V00760` = alfabetizados; `V06004` =
 rendimento do responsável. **Escolaridade não entra:** não existe em nível de setor.
 
