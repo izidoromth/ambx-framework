@@ -75,7 +75,7 @@ Depende do item acima.
 
 **Etapa 4 ausente (#9–13).** Significância, LISA (`esda`/`libpysal`/`splot`),
 regressão, agrupamento. Nada implementado. `comparison`/`inequality` saíram do escopo
-da lib por decisão de arquitetura — implementar como scripts/notebooks de análise.
+da lib por decisão de arquitetura — implementar em `notebooks/analysis/`.
 
 **Redação (#14–15).** Resultados reais não incorporados.
 

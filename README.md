@@ -42,6 +42,7 @@ dissertacao/
 │       └── download_area_verde_curitiba.py
 ├── notebooks/
 │   ├── ambx_tests_porto_alegre.ipynb  # Testes e experimentos (POA)
+│   ├── analysis/                       # Análises socioespaciais da dissertação
 │   └── qualifying/
 │       ├── generate_simulated_flood_areas..ipynb
 │       └── generate_simulated_scenarios.ipynb

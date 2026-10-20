@@ -49,12 +49,12 @@ O arquivo `workflow/config/base.yaml` é uma configuração vazia usada internam
 Antes de executar Curitiba com `lst_green_composite`, confirme que existe:
 
 ```text
-data/processed/curitiba/area_verde_2019.geoparquet
+data/processed/curitiba/area_verde_2019.tif
 ```
 
 ### Gerar o dado de área verde
 
-O arquivo é produzido pela ETL a partir da camada de Área Verde 2019 disponibilizada pelo IPPUC. A partir da raiz do repositório, execute:
+O arquivo raster é produzido pela ETL a partir da camada de Área Verde 2019 disponibilizada pelo IPPUC. Quando um cenário que usa essa camada é executado, o próprio Snakemake chama essa ETL. Para gerar o arquivo manualmente, execute:
 
 ```bash
 source .venv/bin/activate
@@ -64,7 +64,7 @@ python scripts/etl/download_area_verde_curitiba.py
 O script baixa o ZIP original, extrai o Shapefile e salva o produto processado em:
 
 ```text
-data/processed/curitiba/area_verde_2019.geoparquet
+data/processed/curitiba/area_verde_2019.tif
 ```
 
 Também é gerado um arquivo de metadados:

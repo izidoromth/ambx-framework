@@ -52,6 +52,23 @@ rule prepare:
         "--snapped {output.snapped} --graph {output.graph} --edges {output.edges}"
 
 
+rule socioeconomic:
+    input:
+        grid=f"{OUT_DIR}/prepared/grid.parquet"
+    output: f"{OUT_DIR}/prepared/ids.parquet"
+    shell:
+        "python3 scripts/analysis/compute_ids.py --city {config[city]} "
+        "--grid {input.grid} --output {output}"
+
+
+rule etl_area_verde_curitiba:
+    output:
+        raster="data/processed/curitiba/area_verde_2019.tif",
+        metadata="data/processed/curitiba/area_verde_2019.json"
+    shell:
+        "python3 scripts/etl/download_area_verde_curitiba.py"
+
+
 rule route_typical:
     input:
         snapped=f"{OUT_DIR}/prepared/snapped.parquet",
@@ -86,14 +103,16 @@ rule route_conditioned:
 rule indicators:
     input:
         typ=f"{OUT_DIR}/matrices/matrix_typical.parquet",
-        cond=f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet"
+        cond=f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet",
+        population=f"{OUT_DIR}/prepared/ids.parquet"
     output: f"{OUT_DIR}/indicators_{{scenario}}.json"
     params: cfg=CONFIG_PATH
     wildcard_constraints:
         scenario="|".join(CONDITIONED_SCENARIOS)
     shell:
         "python3 workflow/scripts/ambx_stage.py indicators --config {params.cfg} "
-        "--typical {input.typ} --conditioned {input.cond} --output {output}"
+        "--typical {input.typ} --conditioned {input.cond} "
+        "--population {input.population} --output {output}"
 
 
 rule comparison:

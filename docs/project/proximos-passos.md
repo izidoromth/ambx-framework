@@ -4,10 +4,8 @@
 
 - Rodar `lst_green_composite` de novo: o +2,68% medido usou a formulação antiga
   do verde (`FATOR_VERDE = 0,958` atua sobre o tempo total).
-- Conectar o Censo à malha: **IVS** por célula e habilitar o F15 ponderado pela
-  população na regra `indicators`. Ver `decisoes.md` para os 4 eixos.
-- Análise socioespacial: significância, regressão, LISA, agrupamento — como
-  scripts/notebooks, não na lib.
+- Análise socioespacial em `notebooks/analysis/`: significância, regressão,
+  LISA e agrupamento. Não incorporar essas análises à lib.
 - Definir `run_config`/metadados de cada execução.
 - Registrar proveniência do raster LST (produto, sensor, data, resolução).
 - Auditar riscos técnicos de `avaliacao-execucao-qualificacao.md` §5:
@@ -37,7 +35,3 @@
   manutenção do deslocamento a pé.
 - `8.conclusion`: a preencher.
 - Revisar o tempo verbal de `1.introduction` (presente impessoal).
-
-## Decisões
-
-- **Onde fica a análise socioeconômica?** Hoje está fora do texto, porque a seção 4 ficou só com o mecanismo. Opções: (a) seção própria "Análise Socioespacial"; (b) subseção de `6.results`, declarando que roda em `scripts/`/notebooks, fora da lib. A opção (b) preserva a lib como contribuição e evita uma nona seção.
