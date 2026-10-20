@@ -27,6 +27,10 @@
 - `5.case_studies`: converter o futuro em presente, justificar a escolha dos
   dois municípios e apresentar a **calibração de cada caso** com a fonte de
   cada valor (Horiuchi, Nascimento, Li, Jia — ver `decisoes.md`).
+- Formalizar os requisitos para aplicar o framework em outras cidades. (Banca)
+- Incorporar à dissertação a justificativa dos parâmetros das funções de penalização, com exemplos específicos dos estudos de caso. (Banca)
+- Discutir a granularidade temporal das análises (dias e horários). (Banca)
+- Explicar a escolha e o impacto da distância de 200 m. (Banca)
 - `6.results`: remover "Resultados Esperados" e reescrever com os cenários de
   Curitiba e Porto Alegre. O SBBd **não entra** aqui — será apêndice.
 - `7.discussion`: LST ≠ T_ar; velocidade calibrada em câmara; premissa de
