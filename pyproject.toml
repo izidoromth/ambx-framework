@@ -1,3 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ambx"
+version = "0.2.0"
+description = "Framework para avaliação da acessibilidade urbana sob perturbações ambientais"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = {"" = "scripts"}
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+
 [tool.ruff]
 # Os notebooks são artefatos exploratórios e dependem de estado compartilhado
 # entre células; o Ruff os analisa isoladamente e produz falsos positivos para

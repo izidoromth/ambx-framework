@@ -141,6 +141,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Para instalar a biblioteca `ambx` em modo editável e poder usar `import ambx`
+sem configurar `PYTHONPATH`:
+
+```bash
+python -m pip install -e .
+```
+
 ### Dependências principais
 
 - Python ≥ 3.10
