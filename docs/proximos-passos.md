@@ -16,11 +16,14 @@
 
 ## Escrita
 
-- `3.architecture`: descrever a lib como **conceito**, com o módulo entre
+- passar o texto da dissertação para inglês.
+- revisar os comentários da banca.
+- `3.1.archictecture`: descrever a lib como **conceito**, com o módulo entre
   parênteses. Remover o tom de "recomenda-se".
-- `4.penalization`: descrever o **mecanismo** (composição multiplicativa,
+- `3.2.penalization`: descrever o **mecanismo** (composição multiplicativa,
   contínuo vs. discreto, interdição por `inf`, regras compostas, agregação),
   sem os valores calibrados — esses vão para a seção 5.
+- `3.3.validation` desenvolver a subseção
 - `5.case_studies`: converter o futuro em presente, justificar a escolha dos
   dois municípios e apresentar a **calibração de cada caso** com a fonte de
   cada valor (Horiuchi, Nascimento, Li, Jia — ver `decisoes.md`).
