@@ -6,7 +6,7 @@ magnitude desse efeito. Ele expõe um \emph{mecanismo} que recebe camadas
 ambientais e devolve um novo custo para cada aresta; a escolha das camadas e dos
 parâmetros pertence a quem aplica o método. Esta seção descreve esse mecanismo.
 
-\subsection{Cenários}
+\subsubsection{Cenários}
 
 A rede é avaliada em dois estados. No \textbf{cenário típico}, o peso de cada
 aresta ($W_{base}$) corresponde ao custo de deslocamento em condições normais —
@@ -18,7 +18,7 @@ A comparação entre os dois estados é o que permite isolar o efeito da
 perturbação: qualquer diferença nos indicadores de acessibilidade é atribuída à
 alteração de custo introduzida pelas camadas ambientais.
 
-\subsection{Modificadores de custo}
+\subsubsection{Modificadores de custo}
 
 O elemento central do mecanismo é o \emph{modificador de custo}
 (\texttt{CostModifier}). Cada modificador é uma função que recebe o valor de uma
@@ -38,7 +38,7 @@ ao longo dela. A forma de amostragem e a forma de agregação dos fatores são
 declaradas separadamente, o que permite tratar fenômenos com distribuição
 espacial distinta usando o mesmo mecanismo.
 
-\subsection{Composição}
+\subsubsection{Composição}
 
 Quando mais de uma camada ambiental afeta a mesma aresta, os modificadores são
 aplicados em sequência e o resultado é acumulado de forma multiplicativa:
@@ -61,7 +61,7 @@ atenuação por vegetação incidiria sobre qualquer trecho arborizado, inclusiv
 não há calor algum; no arranjo composto, ela pode ser condicionada ao valor da
 camada térmica no mesmo ponto.
 
-\subsection{Leitura das camadas}
+\subsubsection{Leitura das camadas}
 
 A forma de consultar a camada depende da natureza do dado.
 
@@ -76,7 +76,7 @@ aresta é particionada nos trechos em que cruza os limites dos polígonos, e cad
 trecho recebe o fator correspondente ao polígono que o contém. Trechos fora de
 qualquer polígono mantêm o custo original.
 
-\subsection{Agregação e interdição}
+\subsubsection{Agregação e interdição}
 
 Os fatores obtidos nos pontos de uma aresta precisam ser reduzidos a um único
 valor para a aresta inteira. O framework oferece duas formas:
@@ -92,7 +92,7 @@ valor para a aresta inteira. O framework oferece duas formas:
 
 Fatores infinitos recebem tratamento próprio. Atribuir $f = \infty$ a um trecho equivale a declará-lo intransponível: o custo de qualquer caminho que o atravesse passa a ser infinito, e o roteamento tende a preferir alternativas. A interdição não é um custo alto, mas a declaração de que a travessia não é viável naquele cenário — o tratamento adequado a fenômenos que bloqueiam a via em vez de retardá-la, como um deslizamento que soterra o trecho. Quando não existe alternativa, a célula não alcança destino algum, situação contabilizada como perda de acesso.
 
-\subsection{Recálculo e indicadores}
+\subsubsection{Recálculo e indicadores}
 
 Com os custos condicionados definidos, um algoritmo de caminho de menor custo é
 executado sobre o grafo, produzindo as matrizes de tempo de viagem dos dois
