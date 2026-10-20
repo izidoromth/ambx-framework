@@ -4,12 +4,12 @@
 # Uso:
 #   build.sh <diretório>      # qualifying ou dissertation
 #
-# Espera o diretório do documento montado em /work/docs/<diretório>.
+# Espera o diretório do documento montado em /work/docs/latex/<diretório>.
 
 set -eu
 
 DOC="${1:-dissertation}"
-DIR="/work/docs/${DOC}"
+DIR="/work/docs/latex/${DOC}"
 
 if [ ! -f "${DIR}/main.tex" ]; then
     echo "erro: ${DIR}/main.tex não encontrado" >&2

@@ -54,7 +54,10 @@ dissertacao/
 │       └── curitiba/             # Camadas derivadas e convertidas
 ├── cache/                      # Cache de requisições OSM (JSON)
 ├── docs/
-│   └── qualifying/             # Documento de qualificação (LaTeX)
+│   ├── latex/
+│   │   ├── dissertation/       # Dissertação (LaTeX)
+│   │   └── qualifying/         # Documento de qualificação (LaTeX)
+│   └── project/                # Decisões, avaliação e próximos passos
 │       ├── main.tex
 │       ├── main.pdf
 │       ├── refs.bib
@@ -235,7 +238,7 @@ então, comparar ou cruzar com dados socioeconômicos).
 - Hansen, W. G. (1959). *How accessibility shapes land use*. Journal of the American Institute of Planners.
 - Geurs, K. T. & van Wee, B. (2004). *Accessibility evaluation of land-use and transport strategies*. Journal of Transport Geography.
 - Cook, S. et al. (2022). *More than walking and cycling: What is 'active travel'?* Transport Policy.
-- Lista completa em [`docs/dissertation/refs.bib`](docs/dissertation/refs.bib).
+- Lista completa em [`docs/latex/dissertation/refs.bib`](docs/latex/dissertation/refs.bib).
 
 ---
 

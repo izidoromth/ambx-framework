@@ -10,7 +10,7 @@ publicam função de conversão**, o que descarta converter LST → T_ar.
 
 Nenhum estudo regride velocidade de caminhada diretamente sobre LST, e a
 magnitude do efeito é, portanto, **indicativa, não preditiva**. Ver
-``docs/proximos-passos.md`` para a justificativa completa e as limitações.
+``docs/project/proximos-passos.md`` para a justificativa completa e as limitações.
 
 O cenário demonstrativo (``lst_demo_k05``) usa a mesma função com ``k`` maior; a
 diferença fica explícita na configuração, não no código.

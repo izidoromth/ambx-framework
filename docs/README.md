@@ -4,8 +4,9 @@ Dois documentos:
 
 | Pasta | Conteúdo |
 |---|---|
-| `qualifying/` | qualificação, aprovada — **congelada** |
-| `dissertation/` | texto da dissertação, em andamento |
+| `latex/qualifying/` | qualificação, aprovada — **congelada** |
+| `latex/dissertation/` | texto da dissertação, em andamento |
+| `project/` | decisões, avaliação e próximos passos |
 
 Cada um compila de forma independente (`main.tex` → `main.pdf`) e usa os mesmos
 arquivos auxiliares: `refs.bib`, `sbc.bst`, `sbc-template.sty`, `caption2.sty`.
@@ -16,7 +17,7 @@ Não exige TeX Live na máquina. A imagem é construída uma vez.
 
 ```bash
 # a partir da raiz do repositório
-docker build -t ambx-latex docs/
+docker build -t ambx-latex docs/latex/
 ```
 
 Compilar:
@@ -26,7 +27,7 @@ docker run --rm -v "$PWD:/work" ambx-latex dissertation
 docker run --rm -v "$PWD:/work" ambx-latex qualifying
 ```
 
-O PDF sai em `docs/<documento>/main.pdf`.
+O PDF sai em `docs/latex/<documento>/main.pdf`.
 
 O volume monta o repositório inteiro em `/work` — não apenas a pasta do
 documento. Isso é necessário porque `main.tex` referencia `figs/`, `files/`,
@@ -37,7 +38,7 @@ documento. Isso é necessário porque `main.tex` referencia `figs/`, `files/`,
 Com TeX Live instalado:
 
 ```bash
-cd docs/dissertation
+cd docs/latex/dissertation
 latexmk -pdf main.tex
 ```
 
@@ -62,6 +63,6 @@ O `build.sh` remove os auxiliares (`.aux`, `.log`, `.out`) e preserva o PDF.
 Para limpar tudo manualmente:
 
 ```bash
-cd docs/dissertation
+cd docs/latex/dissertation
 latexmk -C
 ```

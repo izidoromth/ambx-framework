@@ -1,11 +1,11 @@
 # Build dos textos (qualificação e dissertação) em qualquer máquina.
 #
 # Uso:
-#   docker build -t ambx-latex .
-#   docker run --rm -v "$PWD/docs:/work/docs" ambx-latex dissertation
+#   docker build -t ambx-latex docs/latex
+#   docker run --rm -v "$PWD:/work" ambx-latex dissertation
 #
-# O argumento é o nome da pasta dentro de docs/ (qualifying ou dissertation).
-# O PDF sai em docs/<pasta>/main.pdf.
+# O argumento é o nome da pasta dentro de docs/latex/ (qualifying ou dissertation).
+# O PDF sai em docs/latex/<pasta>/main.pdf.
 
 FROM debian:bookworm-slim
 
