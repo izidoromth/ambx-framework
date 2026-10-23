@@ -56,7 +56,7 @@ workflow/config/<cidade>.yaml`. Penalizações em `workflow/rules/`, importadas 
 `test_geoparquet_penalty`).
 
 **Dados** — Censo 2022 (`censo_2022.geoparquet`), área verde de Curitiba, LST
-(`LST_Anual_2026_221077_Mediana.tif`), camadas de POA (CPRM). Todos presentes.
+(`LST_Anual_2026_220078_Mediana.tif`), camadas de POA (CPRM). Todos presentes.
 
 ---
 

@@ -140,7 +140,7 @@ scenarios:
     penalties:
       - name: lst
         function: curitiba_lst
-        input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+        input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
         input_type: raster
 ```
 

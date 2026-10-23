@@ -66,7 +66,7 @@ MAX_SNAP_DIST = 1000      # m
 K_NEAREST = 3
 N_JOBS = 8
 
-LST_RASTER_PATH = "data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif"
+LST_RASTER_PATH = "data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif"
 
 def lst_penalty(t):
     """Função de penalidade por temperatura superficial."""
@@ -164,7 +164,7 @@ print("[4] Aplicando penalidade LST via compose_penalties...")
 t0 = time.time()
 
 rule = PenaltyRule(
-    layers=["LST_Anual_2026_221077_Mediana"],
+    layers=["LST_Anual_2026_220078_Mediana"],
     layer_type="raster",
     weight_field="travel_time",
     penalty_fn=lst_penalty,

@@ -16,8 +16,8 @@ scenarios:
     penalties:
       - name: lst
         function: curitiba_lst
-        layer: LST_Anual_2026_221077_Mediana
-        input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+        layer: LST_Anual_2026_220078_Mediana
+        input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
         input_type: raster
   # O verde é tratado em regra composta (lst_green_composite): a atenuação só
   # vale onde há calor. Encadear duas regras simples daria desconto em ponto
@@ -34,7 +34,7 @@ scenarios:
         inputs:
           lst:
             name: lst
-            input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+            input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
             input_type: raster
           area_verde:
             name: area_verde
@@ -47,8 +47,8 @@ scenarios:
     penalties:
       - name: lst
         function: curitiba_lst_demo
-        layer: LST_Anual_2026_221077_Mediana
-        input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+        layer: LST_Anual_2026_220078_Mediana
+        input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
         input_type: raster
   lst_green_composite_demo_k05:
     penalties:
@@ -62,7 +62,7 @@ scenarios:
         inputs:
           lst:
             name: lst
-            input: data/raw/curitiba/LST_Anual_2026_221077_Mediana.tif
+            input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
             input_type: raster
           area_verde:
             name: area_verde
