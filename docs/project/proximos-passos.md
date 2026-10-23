@@ -2,10 +2,13 @@
 
 ## Implementação
 
-- Rodar `lst_green_composite` de novo: o +2,68% medido usou a formulação antiga
-  do verde (`FATOR_VERDE = 0,958` atua sobre o tempo total).
-- Análise socioespacial em `notebooks/analysis/`: significância, regressão,
-  LISA e agrupamento. Não incorporar essas análises à lib.
+- Análise socioespacial em `notebooks/analysis/`:
+  - Mapas de tempo de acesso
+  - Mapa IDS
+  - mapa da degradação por inacessibilidade de POIs;
+  - mapa do delta de tempo entre cenários;
+  - agrupamento das células por tempo de acesso e delta;
+  - regressão entre degradação e condições socioespaciais.
 - Definir `run_config`/metadados de cada execução.
 - Registrar proveniência do raster LST (produto, sensor, data, resolução).
 - Auditar riscos técnicos de `avaliacao-execucao-qualificacao.md` §5:
