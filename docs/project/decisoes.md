@@ -16,22 +16,23 @@ cada escolha.
 
 ## IDS
 
-O índice é formado **no setor, antes de interpolar** (razão de agregados não
-comuta com ponderação por área). O `IDS` combina renda, alfabetização e
-desigualdade racial territorial. Os eixos são normalizados por município e
-recebem o mesmo peso:
+Formado **no setor, antes de interpolar** (razão de agregados não comuta com
+ponderação por área). Cada eixo é normalizado por município (percentis 2–98, com
+clip) e recebe o mesmo peso:
 
 | Eixo | Fórmula | Orientação |
 |---|---|---|
-| `frac_preta_parda` | `(V01318 + V01320) / V01006` | dimensão racial territorial |
+| `frac_preta_parda` | `(V01318 + V01320) / V01006` | direto |
 | `renda` | `log1p(V06004)` | invertido |
-| `taxa_alf` | `Σ(V00748..V00760) / V01006` | invertido |
+| `taxa_analf` | `log1p(1000 · V00901 / (V00900 + V00901))` | direto |
 
-`IDS = (frac_preta_parda + renda + taxa_alf) / 3`, após a normalização.
-`V01006` = pop. total;
-`V01318`/`V01320` = preta/parda; `V00644..V00656` = 15+
-(dos quais `V00654..V00656` = 60+); `V00748..V00760` = alfabetizados; `V06004` =
-rendimento do responsável. **Escolaridade não entra:** não existe em nível de setor.
+**Escolaridade não entra:** o Censo 2022 não a divulga em nível de setor.
+
+O `log1p` no eixo de analfabetismo é necessário: a taxa é assimétrica (mediana de
+0,9% em Curitiba, com bolsões acima de 10%) e, sem ele, o mapa satura em preto.
+
+**`V00901` ausente significa zero**, não supressão — um setor sem analfabetos
+recebe célula vazia em vez de `0`.
 
 ## Penalização térmica (Curitiba)
 

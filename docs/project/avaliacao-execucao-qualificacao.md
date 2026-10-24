@@ -3,7 +3,7 @@
 > Diagnóstico. Base: `docs/latex/qualifying/proposta_qualificacao.pdf`.
 > Agenda, decisões e convenções: `proximos-passos.md`.
 
-**14/10/2026.**
+**14/10/2026** (revisado em 24/10/2026).
 
 ---
 
@@ -28,8 +28,8 @@ Caso de uso: cruzar a perda de acessibilidade com dados socioeconômicos — *on
 |---|---|:--:|---|
 | 1 | Preparação de Dados | 🟢 | Documentar proveniência do raster LST (produto, sensor, data, resolução) |
 | 2 | Implementação Computacional | 🟢 | Testes de `indicators`, `demographics`, `routing` |
-| 3 | Aplicação Experimental | 🟡 | F15 sem população; `run_config` das execuções |
-| 4 | Análise Socioespacial | 🔴 | Tudo: significância, regressão, LISA, agrupamento, IVS |
+| 3 | Aplicação Experimental | 🟡 | `run_config` das execuções |
+| 4 | Análise Socioespacial | 🟡 | Mapas de tempo de acesso e IDS por eixo prontos; faltam regressão, LISA e agrupamento |
 | 5 | Redação e Revisão | 🟡 | Preencher `sections/5.results.tex`; coletânea de artigos |
 
 ---
@@ -62,20 +62,17 @@ workflow/config/<cidade>.yaml`. Penalizações em `workflow/rules/`, importadas 
 
 ## 4. Lacunas
 
-**Censo → célula (#1).** O arquivo existe, mas não chega às células. Filtrar municípios
-(`4106902`, `4314902`), interpolar para a malha. Pré-requisito do F15 e da Etapa 4.
-
-**F15 vazio (#8).** A regra `indicators` chama `compute_all_indicators` sem `population`.
-Depende do item acima.
-
-**Porto Alegre (#7).** `results/porto_alegre/` não existe.
+**F15 vazio (#8).** A regra `indicators` chama `compute_all_indicators` sem
+`population`. A população por célula já é calculada por `scripts/analysis/compute_ids.py`
+(`results/<cidade>/prepared/ids.parquet`); falta ligá-la ao workflow.
 
 **Penalizações hardcoded (#5).** Limiares fixos no código (ex.: LST 25/27/30 °C →
 1.0/1.2/1.5/2.0). Parametrizar no YAML e documentar a calibração.
 
-**Etapa 4 ausente (#9–13).** Significância, LISA (`esda`/`libpysal`/`splot`),
-regressão, agrupamento. Nada implementado. `comparison`/`inequality` saíram do escopo
-da lib por decisão de arquitetura — implementar em `notebooks/analysis/`.
+**Etapa 4 parcial (#9–13).** Mapas de tempo de acesso e IDS por eixo prontos em
+`notebooks/analysis/`. Faltam significância, LISA (`esda`/`libpysal`/`splot`),
+regressão e agrupamento. `comparison`/`inequality` saíram do escopo da lib por
+decisão de arquitetura — ficam em `notebooks/analysis/`.
 
 **Redação (#14–15).** Resultados reais não incorporados.
 

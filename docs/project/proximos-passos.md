@@ -3,8 +3,8 @@
 ## Implementação
 
 - Análise socioespacial em `notebooks/analysis/`:
-  - Mapas de tempo de acesso
-  - Mapa IDS
+  - Mapas de tempo de acesso — **feito**
+  - Mapa IDS por eixo — **feito**
   - mapa da degradação por inacessibilidade de POIs;
   - mapa do delta de tempo entre cenários;
   - agrupamento das células por tempo de acesso e delta;
