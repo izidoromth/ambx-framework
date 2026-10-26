@@ -5,8 +5,8 @@
 - Análise socioespacial em `notebooks/analysis/`:
   - Mapas de tempo de acesso — **feito**
   - Mapa IDS por eixo — **feito**
-  - mapa da degradação por inacessibilidade de POIs;
-  - mapa do delta de tempo entre cenários;
+  - mapa da degradação por inacessibilidade de POIs — **feito**;
+  - mapa do delta de tempo entre cenários — **feito**;
   - agrupamento das células por tempo de acesso e delta;
   - regressão entre degradação e condições socioespaciais.
 - Definir `run_config`/metadados de cada execução.
