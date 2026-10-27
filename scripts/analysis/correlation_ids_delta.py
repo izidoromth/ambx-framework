@@ -30,17 +30,21 @@ def prepare(results: Path, city: str) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--city", action="append", dest="cities")
     args = parser.parse_args()
     cities = args.cities or ["curitiba", "porto_alegre"]
-    output = args.results / "analysis" / "correlation_ids_delta"
-    figures = output / "figures"
-    figures.mkdir(parents=True, exist_ok=True)
-
+    output = args.output or args.results / "analysis" / "correlation_ids_delta"
+    output.mkdir(parents=True, exist_ok=True)
     long = []
     for city in cities:
         data = prepare(args.results, city)
         for scenario, sample in data.groupby("scenario"):
+            scenario_dir = output / scenario if args.output else output / city / scenario
+            figures = scenario_dir / "figures"
+            tables = scenario_dir / "tables"
+            figures.mkdir(parents=True, exist_ok=True)
+            tables.mkdir(parents=True, exist_ok=True)
             for axis in AXES:
                 valid = sample[[axis, TARGET]].replace([np.inf, -np.inf], np.nan).dropna()
                 rho, p_value = spearmanr(valid[axis], valid[TARGET])
@@ -64,6 +68,9 @@ def main() -> None:
     table = pd.DataFrame(long)
     table.to_csv(output / "correlacoes_spearman.csv", index=False)
     table.to_parquet(output / "correlacoes_spearman.parquet", index=False)
+    for (city, scenario), group in table.groupby(["city", "scenario"]):
+        scenario_dir = output / scenario if args.output else output / city / scenario
+        group.to_csv(scenario_dir / "tables" / "correlacoes_spearman.csv", index=False)
     print(f"correlações geradas: {len(table)}")
     print(f"saída: {output}")
 

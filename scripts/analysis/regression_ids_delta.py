@@ -81,10 +81,11 @@ def _prepare_city(results_dir: Path, city: str) -> tuple[pd.DataFrame, list[str]
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--city", action="append", dest="cities")
     args = parser.parse_args()
     cities = args.cities or ["curitiba", "porto_alegre"]
-    output_dir = args.results / "analysis" / "regression_ids_delta"
+    output_dir = args.output or args.results / "analysis" / "regression_ids_delta"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     all_cells = []
@@ -119,6 +120,13 @@ def main() -> None:
     summary = pd.DataFrame(summaries)
     summary.to_csv(output_dir / "resumo_regressoes.csv", index=False)
     summary.to_parquet(output_dir / "resumo_regressoes.parquet", index=False)
+    for (city, scenario), group in summary.groupby(["city", "scenario"]):
+        scenario_dir = output_dir / scenario / "tables" if args.output else output_dir / city / scenario / "tables"
+        scenario_dir.mkdir(parents=True, exist_ok=True)
+        group.to_csv(scenario_dir / "resumo_regressoes.csv", index=False)
+        models.query("city == @city and scenario == @scenario").to_csv(
+            scenario_dir / "modelos.csv", index=False
+        )
     print(f"células analisadas: {len(cells)}")
     print(f"modelos gerados: {models[['city', 'scenario', 'model']].drop_duplicates().shape[0]}")
     print(f"saída: {output_dir}")

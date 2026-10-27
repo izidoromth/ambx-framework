@@ -9,10 +9,12 @@ import sys
 from pathlib import Path
 
 import geopandas as gpd
+import contextily as ctx
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+from matplotlib.colors import ListedColormap
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -221,10 +223,15 @@ def figures(a):
         delta_avg=("delta_t", "mean"),
     ).reset_index()
     cells = grid.merge(stats, on="cell_idx", how="left")
+    cells = cells.to_crs(3857)
     Path(a.comparison_figure).parent.mkdir(parents=True, exist_ok=True)
 
-    def plot_categorico(ax, column, bins, cmap_name, title, inacessivel=None):
-        labels = [f"{bins[i]:.1f}–{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
+    faixas_tempo = [0, 10, 15, 30, 50, np.inf]
+    rotulos_tempo = ["0–10 min", "10–15 min", "15–30 min", "30–50 min", "> 50 min"]
+    cores_tempo = ["#1f4e79", "#7fb3d5", "#ffe066", "#ff9f43", "#c0392b"]
+
+    def plot_categorico(ax, column, bins, cmap_name, title, inacessivel=None, labels=None):
+        labels = labels or [f"{bins[i]:.1f}–{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
         faixa = f"{column}_faixa"
         # A coluna nasce como string (não como Categorical de `pd.cut`), para
         # aceitar a categoria extra "inacessível" — `inf` não entra nos bins,
@@ -235,24 +242,26 @@ def figures(a):
             faixas = faixas.where(~inacessivel, "inacessível")
         ordem = labels + (["inacessível"] if inacessivel is not None else [])
         cells[faixa] = pd.Categorical(faixas, categories=ordem, ordered=True)
-        cells.plot(column=faixa, cmap=cmap_name, legend=True, ax=ax,
+        cmap = ListedColormap(cores_tempo) if labels == rotulos_tempo else cmap_name
+        cells.plot(column=faixa, cmap=cmap, legend=True, ax=ax,
                    edgecolor="white", linewidth=0.1,
                    missing_kwds={"color": "lightgrey", "label": "Sem dados"},
                    legend_kwds={"loc": "lower left", "fontsize": 7})
+        try:
+            ctx.add_basemap(ax, source=ctx.providers.Esri.WorldStreetMap, alpha=0.75, zoom="auto")
+        except Exception as error:
+            print(f"basemap indisponível: {error}")
         ax.set_title(title)
         ax.set_axis_off()
 
-    n_quantiles = 7
-    vals_typ = cells["avg_time_typ"].replace([np.inf, -np.inf], np.nan).dropna()
-    bins_typ = sorted(set(np.quantile(vals_typ, np.linspace(0, 1, n_quantiles + 1))))
-    if len(bins_typ) < 3:
-        bins_typ = [vals_typ.min(), vals_typ.max()]
+    bins_typ = faixas_tempo
 
     # Células que perderam o acesso: tempo condicionado infinito.
     inacessivel = cells["avg_time_cond"].replace(-np.inf, np.nan).eq(np.inf)
     cells.loc[inacessivel, "delta_avg"] = np.nan
     cells.loc[inacessivel, "avg_time_cond"] = np.nan
 
+    n_quantiles = 7
     delta_vals = cells["delta_avg"].dropna()
     bins_delta = sorted(set(np.quantile(delta_vals, np.linspace(0, 1, n_quantiles + 1))))
     if 0 not in bins_delta and len(bins_delta) > 2:
@@ -260,14 +269,15 @@ def figures(a):
     if len(bins_delta) < 3:
         bins_delta = [delta_vals.min(), delta_vals.max()]
 
-    fig, axes = plt.subplots(1, 3, figsize=(22, 7))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 7))
     plot_categorico(axes[0], "avg_time_typ", bins_typ, "RdYlBu_r",
-                    "Tempo médio — típico")
+                    "Tempo médio — típico", labels=rotulos_tempo)
     plot_categorico(axes[1], "avg_time_cond", bins_typ, "RdYlBu_r",
-                    "Tempo médio — condicionado", inacessivel=inacessivel)
+                    "Tempo médio — condicionado", inacessivel=inacessivel,
+                    labels=rotulos_tempo)
     plot_categorico(axes[2], "delta_avg", bins_delta, "YlOrRd",
                     "Δ tempo (condicionado − típico)", inacessivel=inacessivel)
-    plt.tight_layout()
+    fig.subplots_adjust(left=0.01, right=0.99, bottom=0.02, top=0.94, wspace=0.02)
     fig.savefig(a.comparison_figure, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -277,10 +287,21 @@ def figure_typical(a):
     grid = gpd.read_parquet(a.grid)
     stats = matrix.groupby("cell_idx")["travel_time"].mean().rename("avg_time_typ").reset_index()
     cells = grid.merge(stats, on="cell_idx", how="left")
+    cells = cells.to_crs(3857)
+    bins = [0, 10, 15, 30, 50, np.inf]
+    labels = ["0–10 min", "10–15 min", "15–30 min", "30–50 min", "> 50 min"]
+    colors = ["#1f4e79", "#7fb3d5", "#ffe066", "#ff9f43", "#c0392b"]
+    cells["tempo_faixa"] = pd.cut(cells["avg_time_typ"], bins=bins, labels=labels,
+                                   include_lowest=True)
     fig, ax = plt.subplots(figsize=(10, 8))
-    cells.plot(column="avg_time_typ", cmap="RdYlBu_r", legend=True, ax=ax,
+    cells.plot(column="tempo_faixa", cmap=ListedColormap(colors), legend=True, ax=ax,
                edgecolor="white", linewidth=0.1,
-               missing_kwds={"color": "lightgrey", "label": "Sem dados"})
+               missing_kwds={"color": "lightgrey", "label": "Sem dados"},
+               legend_kwds={"loc": "lower left", "fontsize": 8})
+    try:
+        ctx.add_basemap(ax, source=ctx.providers.Esri.WorldStreetMap, alpha=0.75, zoom="auto")
+    except Exception as error:
+        print(f"basemap indisponível: {error}")
     ax.set_title("Tempo médio de acesso — Porto Alegre (cenário típico)")
     ax.set_axis_off(); plt.tight_layout()
     Path(a.output).parent.mkdir(parents=True, exist_ok=True)

@@ -33,6 +33,10 @@ rule all:
                 f"{OUT_DIR}/comparison_{scenario}.parquet",
                 f"{OUT_DIR}/figures/comparison_{scenario}.png",
             ]
+        ] + [
+            f"{OUT_DIR}/analysis/{analysis}"
+            for analysis in ["regression_ids_delta", "correlation_ids_delta", "lisa_ids_delta",
+                             "delta_time_maps", "access_loss_maps"]
         ]
 
 
@@ -148,3 +152,60 @@ rule figures_typical:
     shell:
         "python3 workflow/scripts/ambx_stage.py figure-typical "
         "--matrix {input.matrix} --grid {input.grid} --output {output}"
+
+
+rule analysis_regression:
+    input:
+        ids=f"{OUT_DIR}/prepared/ids.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet", scenario=CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/regression_ids_delta")
+    shell:
+        "python3 scripts/analysis/regression_ids_delta.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --output {OUT_DIR}/analysis/regression_ids_delta"
+
+
+rule analysis_correlation:
+    input:
+        ids=f"{OUT_DIR}/prepared/ids.parquet",
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet", scenario=CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/correlation_ids_delta")
+    shell:
+        "python3 scripts/analysis/correlation_ids_delta.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --output {OUT_DIR}/analysis/correlation_ids_delta"
+
+
+rule analysis_lisa:
+    input:
+        ids=f"{OUT_DIR}/prepared/ids.parquet",
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet", scenario=CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/lisa_ids_delta")
+    shell:
+        "python3 scripts/analysis/lisa_ids_delta.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --output {OUT_DIR}/analysis/lisa_ids_delta"
+
+
+rule analysis_delta_maps:
+    input:
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet", scenario=CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/delta_time_maps")
+    shell:
+        "python3 scripts/analysis/delta_time_maps.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --output {OUT_DIR}/analysis/delta_time_maps"
+
+
+rule analysis_access_loss:
+    input:
+        grid=f"{OUT_DIR}/prepared/grid.parquet",
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet", scenario=CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/access_loss_maps")
+    shell:
+        "python3 scripts/analysis/access_loss_maps.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --output {OUT_DIR}/analysis/access_loss_maps"

@@ -4,11 +4,11 @@
 
 - Análise socioespacial em `notebooks/analysis/`:
   - Mapas de tempo de acesso — **feito**
-  - Mapa IDS por eixo — **feito**
+  - Mapa IDS — **feito**
   - mapa da degradação por inacessibilidade de POIs — **feito**;
   - mapa do delta de tempo entre cenários — **feito**;
-  - agrupamento das células por tempo de acesso e delta;
-  - regressão entre degradação e condições socioespaciais.
+  - análise LISA entre IDS e delta de tempo — **feito**;
+  - regressão e correlação entre IDS e delta de tempo — **feito**.
 - Definir `run_config`/metadados de cada execução.
 - Registrar proveniência do raster LST (produto, sensor, data, resolução).
 - Auditar riscos técnicos de `avaliacao-execucao-qualificacao.md` §5:

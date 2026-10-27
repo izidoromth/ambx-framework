@@ -35,13 +35,12 @@ def prepare(results: Path, city: str) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--city", action="append", dest="cities")
     parser.add_argument("--permutations", type=int, default=999)
     args = parser.parse_args()
     cities = args.cities or ["curitiba", "porto_alegre"]
-    output = args.results / "analysis" / "lisa_ids_delta"
-    figures = output / "figures"
-    figures.mkdir(parents=True, exist_ok=True)
+    output = args.output or args.results / "analysis" / "lisa_ids_delta"
     globals_rows, locals_rows = [], []
 
     for city in cities:
@@ -69,6 +68,9 @@ def main() -> None:
                 colors = {"Não significativo": "#d9d9d9", "Alto-Alto": "#b2182b",
                           "Baixo-Alto": "#ef8a62", "Baixo-Baixo": "#2166ac",
                           "Alto-Baixo": "#67a9cf"}
+                scenario_dir = output / scenario if args.output else output / city / scenario
+                figures = scenario_dir / "figures"
+                figures.mkdir(parents=True, exist_ok=True)
                 fig, ax = plt.subplots(figsize=(10, 10))
                 plot = plot.to_crs(3857)
                 plot.plot(color=plot["cluster"].map(colors), ax=ax, edgecolor="none", alpha=0.72)
@@ -87,6 +89,15 @@ def main() -> None:
     pd.DataFrame(globals_rows).to_parquet(output / "moran_global.parquet", index=False)
     pd.DataFrame(locals_rows).to_csv(output / "lisa_local.csv", index=False)
     pd.DataFrame(locals_rows).to_parquet(output / "lisa_local.parquet", index=False)
+    local_table = pd.DataFrame(locals_rows)
+    global_table = pd.DataFrame(globals_rows)
+    for (city, scenario), group in global_table.groupby(["city", "scenario"]):
+        tables = output / scenario / "tables" if args.output else output / city / scenario / "tables"
+        tables.mkdir(parents=True, exist_ok=True)
+        group.to_csv(tables / "moran_global.csv", index=False)
+        local_table.query("city == @city and scenario == @scenario").to_csv(
+            tables / "lisa_local.csv", index=False
+        )
     print(f"Moran global: {len(globals_rows)}")
     print(f"células LISA: {len(locals_rows)}")
     print(f"saída: {output}")
