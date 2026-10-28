@@ -1,109 +1,67 @@
-\subsection{O Mecanismo de Penalização e Atenuação}
+\subsection{The Cost-Modification Mechanism}
 \label{sec:penalization}
 
-O framework não fixa quais variáveis ambientais devem alterar a rede, nem a
-magnitude desse efeito. Ele expõe um \emph{mecanismo} que recebe camadas
-ambientais e devolve um novo custo para cada aresta; a escolha das camadas e dos
-parâmetros pertence a quem aplica o método. Esta seção descreve esse mecanismo.
+The framework fixes neither which environmental variables alter the network nor the magnitude of their effect. It exposes a \emph{mechanism} that receives environmental layers and returns a new cost for each edge; selecting the layers and setting their parameters belongs to whoever applies the method. This section describes that mechanism.
 
-\subsubsection{Cenários}
+\subsubsection{Scenarios}
 
-A rede é avaliada em dois estados. No \textbf{cenário típico}, o peso de cada
-aresta ($W_{base}$) corresponde ao custo de deslocamento em condições normais —
-a distância do trecho dividida pela velocidade média adotada para o modo
-analisado. No \textbf{cenário condicionado}, os pesos são recalculados a partir
-das camadas ambientais ($C$), produzindo $W_{cond}$ para cada aresta.
+The network is evaluated in two states. In the \textbf{typical scenario}, each edge weight ($W_{base}$) is the travel cost under normal conditions — the segment length divided by the mean speed adopted for the mode under analysis. In the \textbf{conditioned scenario}, weights are recomputed from the environmental layers ($C$), producing $W_{cond}$ for each edge.
 
-A comparação entre os dois estados é o que permite isolar o efeito da
-perturbação: qualquer diferença nos indicadores de acessibilidade é atribuída à
-alteração de custo introduzida pelas camadas ambientais.
+Comparing the two states isolates the effect of the disruption: any difference in accessibility indicators is attributed to the cost change introduced by the environmental layers.
 
-\subsubsection{Modificadores de custo}
+\subsubsection{Cost modifiers}
 
-O elemento central do mecanismo é o \emph{modificador de custo}
-(\texttt{CostModifier}). Cada modificador é uma função que recebe o valor de uma
-camada em um ponto da aresta e devolve um fator multiplicativo:
+The core element of the mechanism is the \emph{cost modifier}. Each modifier is a function that takes the value of a layer at a point on the edge and returns a multiplicative factor:
 
 \begin{equation}
   f(v) \rightarrow \mathbb{R}^{+}
 \end{equation}
 
-onde $v$ é o valor extraído da camada naquele ponto. O fator $f$ pode ser maior
-que 1 (penalização), menor que 1 (atenuação) ou infinito (interdição). O mesmo
-mecanismo cobre os três casos, e é por isso que o framework se refere a
-\emph{modificadores de custo} e não apenas a penalizações.
+where $v$ is the value sampled from the layer at that point. The factor $f$ may exceed 1 (penalization), fall below 1 (attenuation), or be infinite (interdiction). The same mechanism covers all three cases, which is why the framework refers to \emph{cost modifiers} rather than penalties alone.
 
-Um modificador nunca recebe a aresta inteira: ele é aplicado a valores amostrados
-ao longo dela. A forma de amostragem e a forma de agregação dos fatores são
-declaradas separadamente, o que permite tratar fenômenos com distribuição
-espacial distinta usando o mesmo mecanismo.
+A modifier never receives the whole edge: it is applied to values sampled along it. Sampling strategy and factor aggregation are declared separately, so phenomena with different spatial distributions are handled by the same mechanism.
 
-\subsubsection{Composição}
+\subsubsection{Sampling}
 
-Quando mais de uma camada ambiental afeta a mesma aresta, os modificadores são
-aplicados em sequência e o resultado é acumulado de forma multiplicativa:
+Two sampling strategies are available, and the choice trades cost for fidelity. \textbf{Midpoint} queries the layer at the edge midpoint and applies a single factor to the entire edge, which is fast but inaccurate when the edge crosses a boundary. \textbf{Segments} places $n$ equidistant points along the edge, including both endpoints, and reads the layer at each; the value of $n$ is a parameter, defaulting to four.
+
+The distinction matters most for long edges, which are common in peripheries where blocks are large. A single edge can span several hundred meters and cross more than one thermal or topographic zone. Sampling only its midpoint may place the entire segment in the wrong class.
+
+\subsubsection{Reading the layers}
+
+How a layer is queried depends on the nature of the data.
+
+\textbf{Continuous data} (rasters) are sampled at the chosen points. Each point takes the value of the pixel containing it. Points landing on a nodata pixel leave the cost unchanged at that location rather than propagating a missing value into the cost, so an incomplete raster degrades coverage instead of corrupting the network.
+
+\textbf{Discrete data} (vector polygons) are queried by intersection. The edge is partitioned at every point where a polygon boundary crosses it, and each resulting sub-segment receives the factor of the polygon covering it. Sub-segments outside any polygon keep the original cost. Where polygons overlap, the \emph{largest} factor among them applies to the overlap, so a region mapped by two hazard layers is governed by the more restrictive one.
+
+\subsubsection{Aggregation and interdiction}
+
+The factors obtained along an edge must be reduced to a single value for the whole edge. The framework offers two reductions:
+
+\begin{itemize}
+  \item \textbf{Maximum}: adopts the most restrictive factor observed along the segment, treating the edge by its worst case. This is conservative and appropriate when the sample is small.
+  \item \textbf{Length-weighted mean}: each sub-segment pays its own factor, and the mean is weighted by extent. This is more faithful on long edges crossing heterogeneous regions.
+\end{itemize}
+
+Infinite factors receive separate treatment. Assigning $f = \infty$ to a sub-segment declares it impassable: the cost of any path crossing it becomes infinite, and routing prefers alternatives. Interdiction is not a high cost but a statement that crossing is not viable in that scenario — the appropriate treatment for phenomena that block the road rather than delay it, such as a landslide burying the segment. When no alternative exists, the cell reaches no destination at all, a situation recorded as access loss.
+
+\subsubsection{Composition}
+
+When more than one environmental layer affects the same edge, modifiers are applied in sequence and the result accumulates multiplicatively:
 
 \begin{equation}
   W_{cond} = W_{base} \times f_1 \times f_2 \times \cdots \times f_n
 \end{equation}
 
-A ordem de aplicação é declarada na configuração, e cada etapa recebe o custo
-produzido pela anterior. Como a multiplicação é comutativa, a ordem não altera o
-resultado numérico — mas altera como o processo é lido, o que importa quando se
-quer atribuir a mudança de acessibilidade a uma camada específica.
+Each step receives the cost produced by the previous one. Because multiplication commutes, the order does not change the numeric result, but it changes how the process reads, which matters when attributing an accessibility change to a specific layer.
 
-Essa composição admite dois arranjos. Em \emph{regras simples}, cada modificador
-consulta uma camada de forma independente e o encadeamento acontece entre regras.
-Em \emph{regras compostas}, várias camadas são consultadas no \emph{mesmo ponto}
-da aresta e o fator é calculado conjuntamente, o que permite que o efeito de uma
-camada dependa do valor da outra. A distinção importa: no arranjo simples, uma
-atenuação por vegetação incidiria sobre qualquer trecho arborizado, inclusive onde
-não há calor algum; no arranjo composto, ela pode ser condicionada ao valor da
-camada térmica no mesmo ponto.
+This composition admits two arrangements. In \emph{simple rules}, each modifier queries one layer independently and chaining happens across rules. In \emph{composite rules}, several layers are queried at the same point on the edge and the factor is computed jointly, allowing one layer's effect to depend on another's value.
 
-\subsubsection{Leitura das camadas}
+The distinction is not cosmetic. In the simple arrangement, an attenuation by vegetation would apply to any tree-lined segment, including where there is no heat at all — dense canopy next to a shaded, cool street would still receive a discount. In the composite arrangement, vegetation attenuates only where the thermal layer exceeds a threshold at that same point, so the two factors are evaluated jointly rather than independently averaged. A composite rule thus samples all its layers at identical locations before aggregating, preserving the spatial correspondence between their values.
 
-A forma de consultar a camada depende da natureza do dado.
+\subsubsection{Recalculation and indicators}
 
-\textbf{Dados contínuos} (\textit{rasters}) são amostrados em pontos ao longo da
-aresta. Cada ponto recebe o valor do pixel que o contém, e os valores podem ser
-lidos no ponto médio da aresta ou em vários pontos distribuídos ao longo dela. O
-número de pontos é um parâmetro: mais pontos reduzem o erro em arestas longas e
-heterogêneas, ao custo de mais consultas.
+With conditioned costs defined, a least-cost path algorithm runs over the graph, producing travel-time matrices for both scenarios. From these, the indicators described in Section~\ref{subsec:territorial_modelling} are computed: the mean time to reach the $k$ nearest POIs of each category (PTh), the inequality of its distribution (index G), and the share of the population served within a threshold (F15).
 
-\textbf{Dados discretos} (polígonos vetoriais) são consultados por interseção. A
-aresta é particionada nos trechos em que cruza os limites dos polígonos, e cada
-trecho recebe o fator correspondente ao polígono que o contém. Trechos fora de
-qualquer polígono mantêm o custo original.
-
-\subsubsection{Agregação e interdição}
-
-Os fatores obtidos nos pontos de uma aresta precisam ser reduzidos a um único
-valor para a aresta inteira. O framework oferece duas formas:
-
-\begin{itemize}
-  \item \textbf{Máximo}: adota o fator mais restritivo observado no trecho,
-    tratando a aresta pelo pior caso. É conservador e adequado quando a
-    população de pontos é pequena.
-  \item \textbf{Média ponderada pelo comprimento}: cada trecho paga o próprio
-    fator, e a média é calculada pela extensão de cada um. É mais fiel em
-    arestas longas que atravessam regiões heterogêneas.
-\end{itemize}
-
-Fatores infinitos recebem tratamento próprio. Atribuir $f = \infty$ a um trecho equivale a declará-lo intransponível: o custo de qualquer caminho que o atravesse passa a ser infinito, e o roteamento tende a preferir alternativas. A interdição não é um custo alto, mas a declaração de que a travessia não é viável naquele cenário — o tratamento adequado a fenômenos que bloqueiam a via em vez de retardá-la, como um deslizamento que soterra o trecho. Quando não existe alternativa, a célula não alcança destino algum, situação contabilizada como perda de acesso.
-
-\subsubsection{Recálculo e indicadores}
-
-Com os custos condicionados definidos, um algoritmo de caminho de menor custo é
-executado sobre o grafo, produzindo as matrizes de tempo de viagem dos dois
-cenários. A partir delas calculam-se os indicadores descritos na
-Seção~\ref{sec:architecture}: o tempo médio de acesso aos $k$ POIs mais próximos
-de cada categoria (PTh), a desigualdade de sua distribuição (índice G) e a fração
-da população atendida dentro de um limite (F15).
-
-A comparação entre cenários acrescenta a variação de tempo por célula e a
-\emph{perda de acesso}: células que não alcançam nenhum POI no cenário
-condicionado recebem tempo infinito e são contabilizadas à parte. Elas não são um
-caso extremo de tempo alto — são a ausência de acesso, e tratá-las como valor
-numérico distorceria qualquer média ou índice de desigualdade calculado sobre o
-restante.
+The scenario comparison adds per-cell time variation and \emph{access loss}: cells reaching no POI under the conditioned scenario receive infinite time and are accounted for separately. They are not an extreme case of high time but the absence of access, and treating them as a numeric value would distort any mean or inequality index computed over the remainder.
