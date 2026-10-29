@@ -1,0 +1,55 @@
+\subsection{Applicability}
+\label{subsec:applicability}
+
+This section states the criterion by which the scenarios were selected. The mechanism must handle environmental evidence in several forms, and each scenario instantiates one of them.
+
+\subsubsection{Selection Criterion}
+
+The mechanism varies along three axes: whether the environmental layer is continuous or discrete, whether several layers are read independently or jointly at the same location, and whether the effect is a penalization or an interdiction. Each scenario instantiates one combination of these values, and the set was chosen so that each axis appears at both of its values.
+
+Several scenarios run on the same city and differ only in the layers they declare, so the variation in behavior follows from configuration.
+
+\subsubsection{Coverage of the Mechanism}
+
+Table~\ref{tab:cenarios} lists the seven conditioned scenarios by the capability each exercises.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\caption{Scenarios by the capability of the mechanism they exercise}
+\label{tab:cenarios}
+\begin{tabularx}{\linewidth}{|l|l|X|l|}
+\hline
+\textbf{Scenario} & \textbf{Layers} & \textbf{Capability exercised} & \textbf{Effect} \\
+\hline
+\texttt{thermal} & 1 raster & Sampling of a continuous field & penalization \\
+\texttt{thermal+green} & 2 rasters, joint & Composite rule, attenuation conditioned on heat & penalization \\
+\texttt{thermal\_demo} & 1 raster & Response to a steeper gradient & penalization \\
+\texttt{thermal+green\_demo} & 2 rasters, joint & Composite rule under a steeper gradient & penalization \\
+\texttt{flood} & 1 vector & Partition at polygon boundaries & penalization \\
+\texttt{landslide} & 1 vector & Same, with infinite factors & interdiction \\
+\texttt{flood+landslide} & 2 vectors & Sequential composition, interdiction dominates & both \\
+\hline
+\end{tabularx}
+\end{table}
+
+Three properties follow from the table.
+
+\textbf{Both branches of the modifier are exercised.} Curitiba samples continuous fields and Porto Alegre intersects polygon geometries, which are distinct implementation paths.
+
+\textbf{Both outcomes of the cost function are exercised.} Flooding raises travel cost while preserving every connection, so all paths exist in both scenarios with a different weight. Landsliding makes segments impassable, and some origins lose access entirely. The framework reports the second separately, since it is an absence of access and not a slowdown.
+
+\textbf{Composition appears in homogeneous and sequential form.} The \texttt{thermal+green} scenario reads two rasters at identical points, so vegetation attenuates the thermal penalty only where the same location is hot. The \texttt{flood+landslide} scenario applies two vector rules in sequence, and the interdiction of one dominates the penalization of the other on shared edges.
+
+\subsubsection{Demonstrative Scenarios}
+
+Two Curitiba scenarios use a thermal coefficient roughly seven times the calibrated value. They are demonstrative, and the text does not read them as estimates. Their purpose is to show that the mechanism responds monotonically to the magnitude of its input: a steeper gradient that produced a smaller accessibility change would indicate a defect in the composition. Reporting them alongside the calibrated scenarios makes the sensitivity of the pipeline observable at no additional cost, since they differ only in a parameter.
+\subsubsection{Scope and Limitations}
+
+Two limits follow from the design and belong alongside the results.
+
+\textbf{The mixed representation is supported at the component level.} The implementation reads a raster and a vector at the same sample point, and tests cover this path, but no scenario here declares one of each. Doing so requires a study area where both evidence types describe the same phenomenon, which the two municipalities do not provide.
+
+\textbf{The estimates await validation against observations.} Accessibility under a hypothetical disruption has no measured counterpart, since the conditioned scenario did not occur. This work establishes that the mechanism computes what it specifies and that the framework accommodates disruptions of different forms. Matching the resulting travel times to what pedestrians would experience requires observed mobility under an actual event.
+
+Together these limits place the contribution: a framework demonstrated to be applicable across representations and outcomes. Empirical validation of its predictions remains open.
