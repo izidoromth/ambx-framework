@@ -23,7 +23,7 @@ Table~\ref{tab:cenarios} lists the seven conditioned scenarios by the capability
 \textbf{Scenario} & \textbf{Layers} & \textbf{Capability exercised} & \textbf{Effect} \\
 \hline
 \texttt{thermal} & 1 raster & Sampling of a continuous field & penalization \\
-\texttt{thermal+green} & 2 rasters, joint & Composite rule, attenuation conditioned on heat & penalization \\
+\texttt{thermal+green} & 2 rasters, joint & Composite rule over co-located layers & penalization \\
 \texttt{thermal\_demo} & 1 raster & Response to a steeper gradient & penalization \\
 \texttt{thermal+green\_demo} & 2 rasters, joint & Composite rule under a steeper gradient & penalization \\
 \texttt{flood} & 1 vector & Partition at polygon boundaries & penalization \\
@@ -39,7 +39,7 @@ Three properties follow from the table.
 
 \textbf{Both outcomes of the cost function are exercised.} Flooding raises travel cost while preserving every connection, so all paths exist in both scenarios with a different weight. Landsliding makes segments impassable, and some origins lose access entirely. The framework reports the second separately, since it is an absence of access and not a slowdown.
 
-\textbf{Composition appears in homogeneous and sequential form.} The \texttt{thermal+green} scenario reads two rasters at identical points, so vegetation attenuates the thermal penalty only where the same location is hot. The \texttt{flood+landslide} scenario applies two vector rules in sequence, and the interdiction of one dominates the penalization of the other on shared edges.
+\textbf{Composition appears in homogeneous and sequential form.} The \texttt{thermal+green} scenario reads two rasters at identical sampled points and returns a single factor, the thermal one multiplied by the shading reduction wherever vegetation is present. Sampling both layers at the same position is what requires a composite rule: two chained simple rules would each sample the segment independently and could read vegetation at a point whose temperature was read elsewhere. The \texttt{flood+landslide} scenario applies two vector rules in sequence, and the interdiction of one dominates the penalization of the other on shared edges.
 
 \subsubsection{Demonstrative Scenarios}
 

@@ -12,27 +12,40 @@ Tradução para o inglês, seção por seção, com aprovação a cada etapa. Or
 - [x] `3.methodology` (abertura)
 - [x] `3.1.architecture`
 - [x] `3.2.penalization`
-- [x] `3.3.validation`
-- [ ] `5.case_studies`
-- [ ] `6.results`
-- [ ] `7.discussion`
-- [ ] `8.conclusion`
+- [x] `3.3.applicability`
+- [x] `4.case_studies`
+- [ ] `5.results`
+- [ ] `6.discussion`
+- [ ] `7.conclusion`
 
 Ao traduzir cada seção, resolver de passagem os itens de conteúdo já mapeados:
 
 - [ ] **Enquadramento em computação aplicada / ciência de dados** — em toda seção, demonstrar o caráter computacional (modelo de dados, algoritmo, pipeline reprodutível, quantificação) sem declarar isso explicitamente. Ver `diretrizes-redacao.md`.
-- [ ] `5.case_studies`: converter o futuro em presente, justificar a escolha dos
-  dois municípios e apresentar a **calibração de cada caso** com a fonte de
-  cada valor (Horiuchi, Nascimento, Li, Jia — ver `decisoes.md`).
-- `6.results`: remover "Resultados Esperados" e reescrever com os cenários de
+- `5.results`: remover "Resultados Esperados" e reescrever com os cenários de
   Curitiba e Porto Alegre. O SBBd **não entra** aqui — será apêndice.
-- `7.discussion`: LST ≠ T_ar; velocidade calibrada em câmara; premissa de
+- `5.results`: o cenário térmico calibrado move o F15 de Curitiba em ~1 p.p.,
+  contra ~13 p.p. do demonstrativo. A leitura correta é que a penalização
+  calibrada tem efeito agregado pequeno e concentrado no espaço; mostrar a
+  distribuição do delta, não só os agregados.
+- `6.discussion`: LST ≠ T_ar; velocidade calibrada em câmara; premissa de
   manutenção do deslocamento a pé.
+- `6.discussion`: a classe de risco do SGB-CPRM foi lida como equivalente de
+  profundidade de lâmina d'água. Declarar como hipótese de aplicabilidade.
+- `6/7`: o deslizamento interrompe apenas Alta e Média; a classe Baixa fica
+  livre por decisão conservadora, não por ausência de ocorrência no dado.
 
 Revisão pendente:
 
-- [ ] `3.3.validation`: revisar o desenho de validação — o encadeamento com os
-      estudos de caso ainda não foi validado pelo orientador.
+- [ ] `3.3.applicability`: o desenho de aplicabilidade ainda não foi validado
+      pelo orientador.
+- [ ] `3.3.applicability`: a representação mista (raster + vetor) é suportada
+      mas não exercitada por nenhum cenário. Rodar um cenário que combine as
+      duas, se houver tempo.
+- [ ] Renomear os cenários no YAML e no Snakefile para coincidir com o texto
+      (`inundacao` → `flood`, `movimento_massa` → `landslide`, `combinado` →
+      `flood_landslide`, `lst*` → `thermal*`) e reprocessar os resultados.
+- [ ] Permitir que a lib receba POIs de camadas GIS independentes, para corrigir
+      a assimetria de cobertura do OpenStreetMap entre as cidades.
 
 Comentários da banca a endereçar durante a tradução:
 

@@ -22,9 +22,13 @@ clip) e recebe o mesmo peso:
 
 | Eixo | Fórmula | Orientação |
 |---|---|---|
-| `frac_preta_parda` | `(V01318 + V01320) / V01006` | direto |
+| `frac_sem_esgoto` | `1 − (V00309 + V00310) / Σ(V00309…V00316)` | direto |
 | `renda` | `log1p(V06004)` | invertido |
 | `taxa_analf` | `log1p(1000 · V00901 / (V00900 + V00901))` | direto |
+
+**Esgotamento adequado** = rede geral ou pluvial (`V00309`) + fossa séptica ligada
+à rede (`V00310`). Fora: fossa séptica não ligada, fossa rudimentar, vala,
+rio/lago/mar, outra, sem banheiro.
 
 **Escolaridade não entra:** o Censo 2022 não a divulga em nível de setor.
 
@@ -36,7 +40,7 @@ recebe célula vazia em vez de `0`.
 
 ## Penalização térmica (Curitiba)
 
-Função linear: `f(T) = clip(1 + k·(T − t0), 1, fmax)`.
+Função linear: `f(T) = max(1 + k·(T − t0), 1)`.
 
 **Justificativa em três saltos** (cada um declarado na dissertação):
 
@@ -48,8 +52,9 @@ Função linear: `f(T) = clip(1 + k·(T − t0), 1, fmax)`.
    na relação LST–T_ar).
 
 **Parâmetros:** `k = 0,0070` (Horiuchi 2018); `t0 = 23 °C` (referência termoneutra de
-Horiuchi 2018); `fmax = 2,0` (arbitrário — só salvaguarda contra pixel anômalo; a 50 °C
-o fator é 1,19, então o teto não atua em dado realista).
+Horiuchi 2018). O piso 1 impede "bônus" por frio: Horiuchi mede perda no calor, não
+ganho no frio. Não há teto — a LST de Curitiba vai de 12,9 a 38,2 °C, faixa em que o
+fator chega no máximo a 1,11.
 
 **Curva calibrada:** 25 °C → 1,014 | 30 → 1,049 | 35 → 1,084 | 40 → 1,119.
 

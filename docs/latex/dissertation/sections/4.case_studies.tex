@@ -1,0 +1,79 @@
+\section{Case Studies}
+\label{sec:case_studies}
+
+The framework was applied to two Brazilian state capitals, Curitiba (PR) and Porto Alegre (RS). The two cities instantiate the two environmental representations supported by the mechanism: Curitiba carries a continuous field, a surface temperature raster, while Porto Alegre carries discrete polygons delimiting areas at geological risk. Both cities are covered by OpenStreetMap with sufficient completeness for pedestrian routing, both are served by census tracts from the same national survey, and their environmental layers are published by official agencies in open formats. The cases therefore share the data model and differ in the environmental evidence they declare, which is the condition under which the comparison between them is meaningful.
+
+\subsection{Cases and shared configuration}
+\label{subsec:shared-config}
+
+Table~\ref{tab:shared-config} lists the parameters held fixed across both cities. Fixing them is what allows an observed difference in accessibility to be attributed to the environmental layer rather than to the computational setup.
+
+\begin{table}[htbp]
+\centering
+\caption{Parameters held fixed across both case studies.}
+\label{tab:shared-config}
+\begin{tabular}{lll}
+\hline
+Parameter & Value & Effect on the analysis \\
+\hline
+Grid geometry & hexagonal & no directional bias in distance \\
+Cell size & 200 m radius & $\approx 0.104$ km$^2$ per cell \\
+Network type & walkable & pedestrian graph only \\
+Walking speed & 5.0 km/h & converts length to travel time \\
+Nearest POIs ($k$) & 3 & PTh averages the three closest \\
+Maximum snapping & 200 m & cells farther from the graph are discarded \\
+POI buffer & 2000 m & bounds the reachable set \\
+POI source & OpenStreetMap & same extraction rule in both cities \\
+Socioeconomic source & Census 2022 & same variables and aggregation \\
+\hline
+\end{tabular}
+\end{table}
+
+The travel time of an edge is its length divided by the walking speed, which is held constant so that a change in cost reflects the environmental factor alone. Each cell is attached to the nearest network node, and cells whose centroid lies farther than 200 m from any node are discarded rather than assigned to a distant one. The threshold retains 3{,}855 cells in Curitiba and 3{,}065 in Porto Alegre. What it removes is demographically marginal: the discarded cells hold 0.7\% of the population in Curitiba and 1.6\% in Porto Alegre, so the analysis covers 99.3\% and 98.1\% of the resident population respectively. The excluded cells are those over water, parks, steep slopes and vacant land, where there is no pedestrian network to attach to.
+
+\subsection{Curitiba: a continuous conditioning variable}
+\label{subsec:curitiba}
+
+Curitiba is the case in which thermal discomfort acts as a continuous modifier of walking effort. The conditioning layer is a land surface temperature (LST) composite derived from Landsat 8 and 9 imagery, Thermal Infrared Sensor, band \texttt{ST\_TRAD}. The layer is an annual median, which suppresses cloud contamination and isolates the persistent spatial pattern from the day-to-day variation that would make a single scene unrepresentative.
+
+Land cover is the second layer. The source is the 2019 vegetation inventory published by the Instituto de Pesquisa e Planejamento Urbano de Curitiba (IPPUC), distributed as roughly 126 thousand fragmented polygons. Because sidewalks run around squares and parks rather than through them, only 3.4\% of the network's sampled points fell inside a vegetation polygon, and the layer would have had no measurable effect. The vector source is therefore rasterized to a binary 5 m grid and dilated by 5 m, the crown radius of a mature street tree, which models the shade cast onto the adjacent sidewalk and raises coverage to 24.1\% of the network.
+
+The thermal factor follows a linear form, $f(T) = \max\left(1 + k\,(T - t_0),\, 1\right)$, with $k = 0.0070$~°C$^{-1}$ and $t_0 = 23$~°C. The slope derives from the 7\% reduction in economical walking speed measured between 23~°C and 33~°C~\cite{Horiuchi2018Economical}; $t_0$ is the thermoneutral reference of that study. The surface temperature of the composite ranges from 12.9~°C to 38.2~°C, with a median of 27.5~°C, so the factor spans 1.00 to 1.11 across the city. The lower bound holds 1 rather than rewarding cool pixels, since the source measures loss of speed under heat and not a gain under cold.
+
+Vegetation multiplies the thermal factor by $0.958$, derived from a measured reduction of up to 3~s per 100~m in perceived travel time under street trees~\cite{Jia2023GreeningWalk}. At 5~km/h, 100~m take 72~s, and 69~s is 0.958 of that. The reduction applies wherever vegetation exists, including the cool parts of the city, because the source measures the effect on total travel time rather than on the thermal excess. A shaded street at 20~°C therefore receives a factor of $0.958$, below unity.
+
+Reading the two layers at the same point requires a composite rule rather than two chained rules. Each simple rule samples the edge independently, so a segment sampled at four positions would take its temperature from one set of positions and its vegetation from another. The composite rule samples both layers at identical points and returns their product, which keeps the temperature and the shade that are actually at the same place.
+
+\subsection{Porto Alegre: a discrete conditioning variable}
+\label{subsec:porto-alegre}
+
+Porto Alegre is the case in which the conditioning phenomenon is mapped as discrete polygons. Two layers are used, both produced by the Geological Survey of Brazil (SGB/CPRM) as a municipal geological risk zoning~\cite{Bellettini2022RiscoPOA} and distributed through the GeoPOA portal of the city administration: flood-prone areas (2,216 polygons, 250.8~km$^2$) and landslide areas (305 polygons, 76.4~km$^2$). Each polygon is classified as \textit{Alta}, \textit{Média} or \textit{Baixa}, a grading of risk that carries no water depth.
+
+The two hazards call for different treatments, because they act on walking differently. Flooding delays the pedestrian without preventing passage, so its factor is finite and derived from measured speeds. The three classes are read as equivalents of the three depths tested by Li et al.~\cite{Li2026WaterDepth}, in ascending order of severity, and the factor of each class is the ratio between walking speed on dry ground and speed under that depth. This mapping is an assumption of the present application. It yields 1.71 for \textit{Baixa} (0.35~m), 1.86 for \textit{Média} (0.60~m) and 2.14 for \textit{Alta} (0.90~m), all computed from the mean speeds of the study's full sample.
+
+A landslide leaves no passable road behind, and the literature offers no speed to calibrate against. The scenario therefore assumes the event has occurred and treats the landslide as an interruption, assigning an infinite factor to the \textit{Alta} and \textit{Média} classes and removing those edges from the graph.
+
+\subsection{Socioeconomic layer}
+\label{subsec:socioeconomic-layer}
+
+Both cities are described by census tracts from the 2022 Brazilian Demographic Census. Tract variables are transferred to grid cells by area-weighted mean, and tracts that do not intersect a cell are excluded from the denominator rather than counted as zero.
+
+Comparing accessibility between scenarios says how much access is lost, but not who loses it. To place the two against each other, each cell receives a socioeconomic deprivation index (SDI) built from three census variables, one per axis of stratification. The index is computed at the tract and only then carried to the cells, so that a share comes from the tract totals rather than from the average of area-weighted shares. Each axis is normalized within the city by its 2nd and 98th percentiles, which limits the influence of extreme tracts, and the three receive equal weight. All three are oriented so that a higher value means greater deprivation.
+
+The first axis is the share of households without adequate sanitation, taken as the complement of the fraction served by a public sewer network or by a septic tank connected to it, and log-scaled because most tracts sit at or near zero and a few concentrate the deficit. The second is per capita income declared in the tract, taken as a logarithm because its distribution is strongly asymmetric and inverted so that lower income raises the index. The third is the illiteracy rate among heads of household, also log-scaled; schooling in years of study is not published at the tract level for the 2022 census, so literacy is the available proxy for educational condition.
+
+\subsection{Socioeconomic analysis}
+\label{subsec:socioeconomic-analysis}
+
+The index measures the social condition against which the accessibility change is read. Three analyses are applied to each city and scenario, and they answer different questions.
+
+Spearman correlations between each axis and the median per-cell increase in travel time test whether the axes are associated with the change at all. The coefficient is rank-based, so the association does not depend on the shape of either distribution — a property the axes need, since all three are skewed. The three axes are carried separately so that an association with one is not diluted by the other two.
+
+An ordinary least squares regression with the three axes as simultaneous predictors estimates how much of the variation each one accounts for once the others are held. Correlated axes produce similar marginal correlations but different partial coefficients, and the regression separates them. The dependent variable is again the median increase per cell, and the reported quantities are the coefficient, its standard error, and the model's adjusted coefficient of determination.
+
+Correlation and regression treat cells as independent observations, which they are not: neighbouring cells share conditions, infrastructure and environmental exposure. A bivariate Moran's I with a queen contiguity matrix measures whether the association between an axis and the accessibility change is spatially organized, and the local indicator identifies where. Significance comes from 999 permutations, and each cell is classified into the four quadrants — high axis with high change, low with high, low with low, high with low — according to the quadrant in which the local statistic falls. This separates an association spread across the city from one confined to particular areas, which aggregate coefficients cannot show.
+
+\subsection{Scope of the comparison}
+\label{subsec:scope-comparison}
+
+The two cities share the extraction rule for points of interest, the routing parameters and the indicator definitions, so a difference in their accessibility indicators reflects a difference in their territories and in their environmental layers. The coverage of the underlying crowdsourced map is not uniform, however. Curitiba contributes 975 public transport stop positions to the point set, against 121 in Porto Alegre, and this asymmetry propagates to the transportation category, which holds 1,012 points in Curitiba and 170 in Porto Alegre. Indicators for the remaining categories rest on comparable point counts. The transportation results are reported, but comparisons involving that category should be read with the mapping density of each city in mind rather than as a difference between the cities themselves.

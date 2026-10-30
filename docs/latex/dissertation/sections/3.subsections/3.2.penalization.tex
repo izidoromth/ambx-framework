@@ -58,7 +58,7 @@ Each step receives the cost produced by the previous one. Because multiplication
 
 This composition admits two arrangements. In \emph{simple rules}, each modifier queries one layer independently and chaining happens across rules. In \emph{composite rules}, several layers are queried at the same point on the edge and the factor is computed jointly, allowing one layer's effect to depend on another's value.
 
-The distinction shapes how the two arrangements are built. In the simple arrangement, an attenuation by vegetation would apply to any tree-lined segment, including where there is no heat at all — dense canopy next to a shaded, cool street would still receive a discount. In the composite arrangement, vegetation attenuates only where the thermal layer exceeds a threshold at that same point, so the two factors are evaluated jointly rather than independently averaged. A composite rule thus samples all its layers at identical locations before aggregating, preserving the spatial correspondence between their values.
+The distinction shapes how the two arrangements are built. Each simple rule samples the edge on its own, so two chained rules may read their values at different positions along the same segment. A composite rule samples all its layers at identical locations before aggregating, which preserves the spatial correspondence between their values.
 
 \subsubsection{Recalculation and indicators}
 
