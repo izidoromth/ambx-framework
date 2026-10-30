@@ -73,8 +73,10 @@ def compute_pth(
     2         1      education  15.0
     3         1         health   6.0
     """
-    # Filtra apenas pares alcançáveis
-    valid = matrix.dropna(subset=[time_col]).copy()
+    # Filtra apenas pares alcançáveis. Arestas interditadas recebem custo
+    # infinito no roteamento, então `inf` também significa ausência de
+    # acesso e precisa sair junto com os `NaN`.
+    valid = matrix[np.isfinite(matrix[time_col])].copy()
 
     if valid.empty:
         return pd.DataFrame(columns=[cell_col, category_col, "pth"])
@@ -165,7 +167,7 @@ def compute_gini(values: pd.Series) -> float:
     >>> compute_gini(pd.Series([0, 10, 20, 30]))
     0.5
     """
-    values = values.dropna()
+    values = values[np.isfinite(values)]
     n = len(values)
 
     if n == 0:
@@ -310,7 +312,8 @@ def compute_all_indicators(
         perdidos_by_cat = {}
 
         for cat in pth_wide.columns:
-            vals = pth_wide[cat].dropna()
+            vals = pth_wide[cat]
+            vals = vals[np.isfinite(vals)]
             gini_by_cat[cat] = compute_gini(vals)
 
             if population is not None:

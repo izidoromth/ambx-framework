@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 import pickle
 import sys
 from pathlib import Path
@@ -18,6 +19,17 @@ from matplotlib.colors import ListedColormap
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+
+
+def _clean(obj):
+    """Replace non-finite floats by None so the output is valid JSON."""
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean(v) for v in obj]
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    return obj
 sys.path.insert(0, str(ROOT))
 
 from ambx.environment import build_environment
@@ -211,7 +223,7 @@ def indicators(a):
         k=c["k_nearest"], population=population,
     )
     serial = {k: (v.to_dict() if isinstance(v, pd.DataFrame) else v) for k, v in result.items()}
-    Path(a.output).parent.mkdir(parents=True, exist_ok=True); Path(a.output).write_text(json.dumps(serial, default=str))
+    Path(a.output).parent.mkdir(parents=True, exist_ok=True); Path(a.output).write_text(json.dumps(_clean(serial), default=str, allow_nan=False))
 
 
 def figures(a):
