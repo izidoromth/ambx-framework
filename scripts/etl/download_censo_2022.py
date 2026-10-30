@@ -56,6 +56,10 @@ FILES = {
         f"{URL_BASE}/Agregados_por_Setores_Censitarios/Agregados_por_Setor_csv/"
         "Agregados_por_setores_demografia_BR.zip"
     ),
+    "dwelling": (
+        f"{URL_BASE}/Agregados_por_Setores_Censitarios/Agregados_por_Setor_csv/"
+        "Agregados_por_setores_caracteristicas_domicilio2_BR_20250417.zip"
+    ),
     "income": (
         f"{URL_BASE}/Agregados_por_Setores_Censitarios_Rendimento_do_Responsavel/"
         "Agregados_por_setores_renda_responsavel_BR_20260508_csv.zip"
@@ -112,6 +116,11 @@ COLUMNS: dict[str, list[str]] = {
         "V01041",
     ],
     "income": ["V06001", "V06002", "V06004", "V06006"],
+    # Domicílios: destinação do esgoto (V00309 rede → V00316 sem banheiro).
+    "dwelling": [
+        "V00309", "V00310", "V00311", "V00312",
+        "V00313", "V00314", "V00315", "V00316",
+    ],
 }
 
 # ---------------------------------------------------------------------------

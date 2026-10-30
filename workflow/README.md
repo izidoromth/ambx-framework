@@ -18,7 +18,7 @@ Curitiba:
 ```text
 typical                       referência sem penalização
 lst                           penalização associada à temperatura da superfície
-lst_green_composite           LST composta com área verde (atenua só onde há calor)
+lst_green_composite           LST composta com área verde (lê as duas camadas no mesmo ponto)
 lst_demo_k05                  demonstrativo, k = 0,05/°C (sem respaldo empírico)
 lst_green_composite_demo_k05  demonstrativo composto com área verde
 ```

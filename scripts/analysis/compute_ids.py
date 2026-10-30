@@ -5,8 +5,8 @@ Os índices são calculados primeiro nos setores censitários e só depois
 interpolados para a malha. Cada eixo é normalizado por min--max dentro do
 município:
 
-    IDS = (renda invertida + taxa de analfabetismo
-           + desigualdade racial territorial) / 3
+    IDS = (esgotamento inadequado + renda invertida
+           + taxa de analfabetismo) / 3
 
 Além dos índices, a saída contém a população interpolada por célula, que pode ser
 passada ao ``compute_all_indicators(..., population=...)`` para calcular o F15.
@@ -90,10 +90,10 @@ def _log_escala(series: pd.Series, escala: float = 1000.0) -> pd.Series:
 
 
 def compute_sector_ids(tracts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Calcula os eixos e os dois IDS nos setores censitários."""
-    required = {
-        "V01006", "V01318", "V01320", "V06004", "V00900", "V00901",
-    }
+    """Calcula os eixos e o IDS nos setores censitários."""
+    esgoto = ["V00309", "V00310", "V00311", "V00312",
+              "V00313", "V00314", "V00315", "V00316"]
+    required = {"V01006", "V06004", "V00900", "V00901", *esgoto}
     missing = sorted(required.difference(tracts.columns))
     if missing:
         raise ValueError(f"Colunas censitárias ausentes: {', '.join(missing)}")
@@ -101,9 +101,16 @@ def compute_sector_ids(tracts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     population = pd.to_numeric(tracts["V01006"], errors="coerce")
     tracts = tracts.copy()
     tracts["populacao"] = population
-    tracts["frac_preta_parda"] = (
-        _num(tracts, ["V01318", "V01320"]) / population.replace(0, np.nan)
-    )
+
+    # Esgotamento adequado = rede geral/pluvial + fossa séptica ligada à rede.
+    # "X" (dado suprimido) vira NaN e sai do denominador.
+    domicilios = tracts[esgoto].apply(pd.to_numeric, errors="coerce")
+    total = domicilios.sum(axis=1)
+    adequado = domicilios[["V00309", "V00310"]].sum(axis=1)
+    tracts["frac_sem_esgoto"] = (
+        1.0 - adequado / total.replace(0, np.nan)
+    ).where(total.gt(0))
+
     tracts["renda"] = np.log1p(pd.to_numeric(tracts["V06004"], errors="coerce"))
 
     sabe = pd.to_numeric(tracts["V00900"], errors="coerce")
@@ -111,10 +118,10 @@ def compute_sector_ids(tracts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     total_15mais = (sabe + nao_sabe).replace(0, np.nan)
     tracts["taxa_analf"] = (nao_sabe / total_15mais).where(sabe.notna())
 
-    tracts["eixo_preta_parda"] = _minmax(tracts["frac_preta_parda"])
+    tracts["eixo_sem_esgoto"] = _minmax(_log_escala(tracts["frac_sem_esgoto"]))
     tracts["eixo_renda"] = _minmax(tracts["renda"], invert=True)
     tracts["eixo_analfabetismo"] = _minmax(_log_escala(tracts["taxa_analf"]))
-    axes = ["eixo_preta_parda", "eixo_renda", "eixo_analfabetismo"]
+    axes = ["eixo_sem_esgoto", "eixo_renda", "eixo_analfabetismo"]
     tracts["ids"] = tracts[axes].mean(axis=1)
     return tracts
 
@@ -125,7 +132,7 @@ def compute_grid_ids(
     """Interpola IDS, eixos e população dos setores para a malha."""
     sector = compute_sector_ids(tracts)
     result = pd.DataFrame(index=pd.Index(grid["cell_idx"], name="cell_idx"))
-    columns = ["ids", "eixo_preta_parda", "eixo_renda", "eixo_analfabetismo"]
+    columns = ["ids", "eixo_sem_esgoto", "eixo_renda", "eixo_analfabetismo"]
     for column in columns:
         result[column] = _area_mean_to_grid(sector, grid, column)
 

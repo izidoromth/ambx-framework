@@ -26,15 +26,12 @@ T0_LITERATURA = 23.0
 # resposta do roteamento. Não tem respaldo empírico.
 K_DEMO = 0.05
 
-FMAX = 2.0
 
-
-def lst_factor(value, k=K_LITERATURA, t0=T0_LITERATURA, fmax=FMAX):
+def lst_factor(value, k=K_LITERATURA, t0=T0_LITERATURA):
     """Fator multiplicativo linear em função da LST.
 
-    ``f(T) = clip(1 + k·(T − t0), 1, fmax)``. O piso 1 impede "bônus" por
-    frio (Horiuchi mede perda no calor, não ganho no frio); o teto ``fmax``
-    protege contra pixels anômalos do raster.
+    ``f(T) = max(1 + k·(T − t0), 1)``. O piso 1 impede "bônus" por frio:
+    Horiuchi mede perda de velocidade no calor, não ganho no frio.
     """
     if value is None:
         return 1.0
@@ -44,7 +41,7 @@ def lst_factor(value, k=K_LITERATURA, t0=T0_LITERATURA, fmax=FMAX):
         return 1.0
     if isnan(t):
         return 1.0
-    return min(max(1.0 + k * (t - t0), 1.0), fmax)
+    return max(1.0 + k * (t - t0), 1.0)
 
 
 def curitiba_lst(value):

@@ -11,7 +11,7 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 
-AXES = ["eixo_preta_parda", "eixo_renda", "eixo_analfabetismo"]
+AXES = ["eixo_sem_esgoto", "eixo_renda", "eixo_analfabetismo"]
 TARGET = "delta_t_mediano"
 
 

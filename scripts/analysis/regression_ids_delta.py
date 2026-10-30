@@ -10,7 +10,7 @@ import pandas as pd
 import statsmodels.api as sm
 
 
-AXES = ["eixo_preta_parda", "eixo_renda", "eixo_analfabetismo"]
+AXES = ["eixo_sem_esgoto", "eixo_renda", "eixo_analfabetismo"]
 
 
 def _ols(data: pd.DataFrame, predictors: list[str], target: str) -> pd.DataFrame:

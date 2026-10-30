@@ -9,5 +9,5 @@ from workflow.rules.curitiba_lst import K_DEMO, lst_factor
 
 
 def curitiba_lst_demo(value):
-    """Fator com k = 0,05/°C (t0 = 23 °C, fmax = 2,0)."""
+    """Fator com k = 0,05/°C (t0 = 23 °C)."""
     return lst_factor(value, k=K_DEMO)
