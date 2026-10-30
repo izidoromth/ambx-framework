@@ -1,30 +1,27 @@
-"""Regra de penalização por suscetibilidade a inundação em Porto Alegre.
+"""Regra de penalização por risco de inundação em Porto Alegre.
 
-**Calibração (classe Alta).** Xu et al. (2026, *Acta Polytechnica CTU*,
-DOI 10.14311/app.2026.57.0226) mediram a velocidade de caminhada de 188
-participantes em quatro lâminas d'água (0 / 0,35 / 0,60 / 0,90 m). A 0,35 m a
-redução foi de **38,6% (homens) e 44,8% (mulheres)**; o passo encurtou 37% e
-32%, e a estabilidade caiu (sway lateral +69% / +133%).
+**Calibração.** Li et al. (2026, *Acta Polytechnica CTU*, DOI
+10.14311/app.2026.57.0226) mediram a velocidade de 188 participantes em quatro
+lâminas d'água (0 / 0,35 / 0,60 / 0,90 m). Velocidade média da amostra total:
 
-Fator = 1 / (1 − redução). Com a redução feminina (44,8%), 1/0,552 = **1,81**.
-Adota-se **2,0** (≈ 1/0,5, ou seja, metade da velocidade) como arredondamento
-conservador da pior condição medida.
+    profundidade   velocidade   fator
+    0 m            1,69 m/s     1,00
+    0,35 m         0,99 m/s     1,71
+    0,60 m         0,91 m/s     1,86
+    0,90 m         0,79 m/s     2,14
 
-**Médio e Baixa não têm fonte.** A interpolação entre 1,0 e 2,0 é arbitrária e
-deve ser declarada como tal.
+Fator = v(0) / v(d).
+
+**Pareamento classe → profundidade.** A camada do SGB-CPRM classifica risco
+geológico, não lâmina d'água, e não traz profundidade em nenhum campo. As três
+classes são aqui tratadas como equivalentes às três profundidades medidas, em
+ordem crescente. É hipótese de aplicabilidade, não dado da fonte.
 """
 
-# Calibração (classe Alta) — Xu et al. (2026).
-FATOR_ALTO = 2.0
-
-# Sem fonte: interpolação arbitrária entre não-penalizado e o fator do Alto.
-FATOR_MEDIO = 1.5
-FATOR_BAIXA = 1.1
-
 FACTORS = {
-    "Alto": FATOR_ALTO,
-    "Médio": FATOR_MEDIO,
-    "Baixa": FATOR_BAIXA,
+    "Alto": 1.69 / 0.79,
+    "Médio": 1.69 / 0.91,
+    "Baixa": 1.69 / 0.99,
 }
 
 

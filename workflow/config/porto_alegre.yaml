@@ -14,7 +14,7 @@ scenarios:
   typical: {}
 
   # Inundação: penaliza (atrasa), nunca bloqueia. Fatores finitos calibrados
-  # por Xu et al. (2026): classe Alto = 2,0 (velocidade cai ~45% a 0,35 m).
+  # por Li et al. (2026): classe Alto = 1,81 (velocidade cai 44,8% a 0,35 m).
   inundacao:
     penalties:
       - name: inundacao
