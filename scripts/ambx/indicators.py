@@ -134,11 +134,14 @@ def compute_pth_wide(
 # ---------------------------------------------------------------------------
 
 
-def compute_gini(values: pd.Series) -> float:
+def compute_gini(
+    values: pd.Series,
+    population: pd.Series | None = None,
+) -> float:
     """
     Calcula o coeficiente de Gini para uma série de valores.
 
-    Fórmula (versão para dados amostrais ordenados):
+    Fórmula (dados amostrais ordenados):
 
     .. math::
 
@@ -151,7 +154,11 @@ def compute_gini(values: pd.Series) -> float:
     ----------
     values : pd.Series
         Série de valores positivos (ex.: PTh por célula).
-        Valores ``NaN`` são ignorados.
+        Valores não finitos são descartados.
+    population : pd.Series | None, default None
+        População por célula, alinhada por índice. Se informada, o
+        índice é ponderado pela população; se ``None``, todas as
+        células têm o mesmo peso.
 
     Returns
     -------
@@ -164,8 +171,8 @@ def compute_gini(values: pd.Series) -> float:
     --------
     >>> compute_gini(pd.Series([10, 10, 10, 10]))
     0.0
-    >>> compute_gini(pd.Series([0, 10, 20, 30]))
-    0.5
+    >>> round(compute_gini(pd.Series([0, 10, 20, 30])), 4)
+    0.4167
     """
     values = values[np.isfinite(values)]
     n = len(values)
@@ -183,15 +190,32 @@ def compute_gini(values: pd.Series) -> float:
     if n == 1:
         return 0.0
 
-    sorted_vals = np.sort(values)
-    indices = np.arange(1, n + 1)
-    numerator = 2 * np.sum(indices * sorted_vals)
-    denominator = n * np.sum(sorted_vals)
+    if population is not None:
+        weights = population.reindex(values.index).fillna(0.0).to_numpy()
+        weights = np.where(np.isfinite(weights) & (weights > 0), weights, 0.0)
+        if weights.sum() == 0:
+            return float("nan")
+    else:
+        weights = np.ones(n)
 
-    if denominator == 0:
+    order = np.argsort(values.to_numpy())
+    sorted_vals = values.to_numpy()[order]
+    sorted_w = weights[order]
+
+    # Posição média ponderada de cada célula na série ordenada.
+    cum_w = np.cumsum(sorted_w)
+    prev_w = cum_w - sorted_w
+    mean_rank = prev_w + (sorted_w + 1.0) / 2.0
+
+    total_w = cum_w[-1]
+    weighted_sum = np.sum(sorted_vals * sorted_w)
+
+    if weighted_sum == 0:
         return 0.0
 
-    gini = numerator / denominator - (n + 1) / n
+    numerator = 2.0 * np.sum(mean_rank * sorted_vals * sorted_w)
+    denominator = total_w * weighted_sum
+    gini = numerator / denominator - (total_w + 1.0) / total_w
     return float(gini)
 
 
@@ -245,7 +269,9 @@ def compute_f15(
     if total_pop == 0:
         return float("nan")
 
-    served = pop[pth <= threshold].sum()
+    # Células sem acesso (ausentes de `pth`) permanecem no denominador.
+    served_mask = pth.reindex(pop.index).le(threshold).fillna(False).astype(bool)
+    served = pop[served_mask.to_numpy()].sum()
     return float(served / total_pop)
 
 
@@ -314,13 +340,16 @@ def compute_all_indicators(
         for cat in pth_wide.columns:
             vals = pth_wide[cat]
             vals = vals[np.isfinite(vals)]
-            gini_by_cat[cat] = compute_gini(vals)
 
+            # Gini ponderado pela população: a desigualdade é a das
+            # pessoas, não a das células.
             if population is not None:
-                pop_aligned = population.reindex(vals.index, fill_value=0)
+                gini_by_cat[cat] = compute_gini(vals, population=population)
                 f15_by_cat[cat] = compute_f15(
-                    vals, pop_aligned, threshold=threshold,
+                    vals, population.fillna(0), threshold=threshold,
                 )
+            else:
+                gini_by_cat[cat] = compute_gini(vals)
 
             # Perda de acesso: células que existem na malha mas não têm
             # nenhum POI alcançável. `compute_pth` devolve NaN para elas —

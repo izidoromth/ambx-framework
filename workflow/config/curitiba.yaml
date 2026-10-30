@@ -5,7 +5,7 @@ cell_size: 200
 poi_buffer: 2000
 network_type: walk
 walk_speed_kph: 5.0
-max_snap_distance: 1000
+max_snap_distance: 200
 k_nearest: 3
 n_jobs: 8
 output_dir: results/curitiba
@@ -19,9 +19,10 @@ scenarios:
         layer: LST_Anual_2026_220078_Mediana
         input: data/raw/curitiba/LST_Anual_2026_220078_Mediana.tif
         input_type: raster
-  # O verde é tratado em regra composta (lst_green_composite): a atenuação só
-  # vale onde há calor. Encadear duas regras simples daria desconto em ponto
-  # ameno — por isso não existe um cenário cumulativo.
+  # Regra composta: lê LST e vegetação no mesmo ponto amostrado e devolve o
+  # fator térmico multiplicado pela redução do sombreamento. Duas regras
+  # simples não funcionariam na amostragem por segmentos, onde cada regra
+  # amostraria em posições diferentes da mesma aresta.
   lst_green_composite:
     penalties:
       - name: lst_green

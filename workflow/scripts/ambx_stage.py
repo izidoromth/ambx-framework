@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def _clean(obj):
-    """Replace non-finite floats by None so the output is valid JSON."""
+    """Converte floats não finitos em None para produzir JSON válido."""
     if isinstance(obj, dict):
         return {k: _clean(v) for k, v in obj.items()}
     if isinstance(obj, list):
