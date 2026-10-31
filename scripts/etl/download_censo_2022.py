@@ -142,10 +142,8 @@ def _download(url: str, dest: Path) -> None:
 
 def _normalize_tract_id(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
-        if col.upper() == TRACT_ID:
-            if col != TRACT_ID:
-                df = df.rename(columns={col: TRACT_ID})
-            break
+        if col.upper() in (TRACT_ID, "SETOR"):
+            return df.rename(columns={col: TRACT_ID})
     return df
 
 
@@ -223,7 +221,7 @@ def main():
     print("\n[Merge]")
     merged = None
 
-    for theme in ["basico", "literacy", "race", "demography", "income"]:
+    for theme in ["basico", "literacy", "race", "demography", "dwelling", "income"]:
         url = FILES[theme]
         path = CACHE / url.split("/")[-1]
         cols = COLUMNS[theme]
