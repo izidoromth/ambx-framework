@@ -76,7 +76,13 @@ def compute_pth(
     # Filtra apenas pares alcançáveis. Arestas interditadas recebem custo
     # infinito no roteamento, então `inf` também significa ausência de
     # acesso e precisa sair junto com os `NaN`.
-    valid = matrix[np.isfinite(matrix[time_col])].copy()
+    if matrix.empty:
+        return pd.DataFrame(columns=[cell_col, category_col, "pth"])
+
+    # Uma matriz vazia chega com `object` na coluna de tempo, e `np.isfinite`
+    # não aceita esse tipo. Converter antes mantém a função total.
+    times = pd.to_numeric(matrix[time_col], errors="coerce")
+    valid = matrix[np.isfinite(times)].copy()
 
     if valid.empty:
         return pd.DataFrame(columns=[cell_col, category_col, "pth"])
