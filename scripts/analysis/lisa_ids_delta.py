@@ -10,12 +10,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import contextily as ctx
+from PIL import Image
 from esda.moran import Moran_BV, Moran_Local_BV
 from libpysal.weights import Queen
 from matplotlib.patches import Patch
 
 
 AXES = ["ids"]
+
+# Scenarios shown side by side in each city's comparison panel.
+PANELS = {
+    "curitiba": ["lst", "lst_green_composite"],
+    "porto_alegre": ["inundacao", "movimento_massa", "combinado"],
+}
 
 
 def prepare(results: Path, city: str) -> pd.DataFrame:
@@ -101,6 +108,39 @@ def main() -> None:
     print(f"Moran global: {len(globals_rows)}")
     print(f"células LISA: {len(locals_rows)}")
     print(f"saída: {output}")
+
+    for city, scenarios in PANELS.items():
+        if city not in cities:
+            continue
+        available = [(s, output / city / s / "figures" / f"{city}_{s}_ids.png")
+                     if not args.output
+                     else (s, output / s / "figures" / f"{city}_{s}_ids.png")
+                     for s in scenarios]
+        found = [(name, path) for name, path in available if path.exists()]
+        if found:
+            panel(found, output / f"panel_{city}.png", ncol=len(found))
+
+
+def panel(figures: list[tuple[str, Path]], destination: Path, ncol: int) -> None:
+    """Join the per-scenario maps into one figure so they fit on a single page.
+
+    Each panel keeps its own title and legend, which is what makes the
+    side-by-side comparison readable.
+    """
+    tiles = [Image.open(path).convert("RGB") for _, path in figures]
+    width = max(tile.width for tile in tiles)
+    height = max(tile.height for tile in tiles)
+    nrow = (len(tiles) + ncol - 1) // ncol
+    gap = 10
+    out = Image.new("RGB", (width * ncol + gap * (ncol - 1),
+                            height * nrow + gap * (nrow - 1)), "white")
+    for index, tile in enumerate(tiles):
+        row, col = divmod(index, ncol)
+        x = col * (width + gap) + (width - tile.width) // 2
+        y = row * (height + gap) + (height - tile.height) // 2
+        out.paste(tile, (x, y))
+    out.save(destination, dpi=(180, 180), optimize=True)
+    print(f"painel: {destination}")
 
 
 if __name__ == "__main__":
