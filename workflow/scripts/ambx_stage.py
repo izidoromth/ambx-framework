@@ -241,6 +241,7 @@ def figures(a):
     faixas_tempo = [0, 10, 15, 30, 50, np.inf]
     rotulos_tempo = ["0–10 min", "10–15 min", "15–30 min", "30–50 min", "> 50 min"]
     cores_tempo = ["#1f4e79", "#7fb3d5", "#ffe066", "#ff9f43", "#c0392b"]
+    cor_inacessivel = "#920025"
 
     def plot_categorico(ax, column, bins, cmap_name, title, inacessivel=None, labels=None):
         labels = labels or [f"{bins[i]:.1f}–{bins[i + 1]:.1f}" for i in range(len(bins) - 1)]
@@ -254,7 +255,10 @@ def figures(a):
             faixas = faixas.where(~inacessivel, "inacessível")
         ordem = labels + (["inacessível"] if inacessivel is not None else [])
         cells[faixa] = pd.Categorical(faixas, categories=ordem, ordered=True)
-        cmap = ListedColormap(cores_tempo) if labels == rotulos_tempo else cmap_name
+        cores = list(cores_tempo)
+        if inacessivel is not None:
+            cores = cores + [cor_inacessivel]
+        cmap = ListedColormap(cores) if labels == rotulos_tempo else cmap_name
         cells.plot(column=faixa, cmap=cmap, legend=True, ax=ax,
                    edgecolor="white", linewidth=0.1,
                    missing_kwds={"color": "lightgrey", "label": "Sem rede (200 m)"},
