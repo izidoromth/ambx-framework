@@ -36,7 +36,7 @@ rule all:
         ] + [
             f"{OUT_DIR}/analysis/{analysis}"
             for analysis in ["regression_ids_delta", "correlation_ids_delta", "lisa_ids_delta",
-                             "delta_time_maps", "access_loss_maps"]
+                             "delta_time_maps", "access_loss_maps", "indicators"]
         ]
 
 
@@ -209,3 +209,25 @@ rule analysis_access_loss:
     shell:
         "python3 scripts/analysis/access_loss_maps.py --results {OUT_DIR}/.. "
         "--city {config[city]} --output {OUT_DIR}/analysis/access_loss_maps"
+
+
+rule analysis_indicators:
+    """PTh, F15 e Gini de todos os cenários em uma tabela única.
+
+    As demais análises partem do `comparison_*.parquet` (variação por par). Esta
+    parte das matrizes, porque os indicadores descrevem o nível de acesso, não a
+    diferença entre cenários.
+    """
+    input:
+        ids=f"{OUT_DIR}/prepared/ids.parquet",
+        matrices=expand(f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet",
+                        scenario=["typical"] + CONDITIONED_SCENARIOS)
+    output:
+        directory(f"{OUT_DIR}/analysis/indicators")
+    params:
+        k=config["k_nearest"]
+    shell:
+        "python scripts/analysis/summarize_indicators.py --results {OUT_DIR}/.. "
+        "--city {config[city]} --k {params.k} --threshold 15.0 "
+        "--output {output}"
+

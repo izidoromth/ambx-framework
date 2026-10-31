@@ -157,12 +157,36 @@ results/<cidade>/
 ├── matrices/matrix_<cenario>.parquet  matriz penalizada
 ├── indicators_<cenario>.json
 ├── comparison_<cenario>.parquet
-└── figures/
-    ├── map_typical.png
-    └── comparison_<cenario>.png
+├── figures/
+│   ├── map_typical.png
+│   └── comparison_<cenario>.png
+└── analysis/
+    ├── indicators/                   PTh, F15 e Gini de todos os cenários
+    ├── regression_ids_delta/
+    ├── correlation_ids_delta/
+    ├── lisa_ids_delta/
+    ├── delta_time_maps/
+    └── access_loss_maps/
 ```
 
 Os nomes `<cidade>` e `<cenario>` são substituídos pelos valores definidos no YAML.
+
+### Conferir os números citados no texto
+
+`analysis/indicators/indicators.csv` reúne PTh (média e mediana ponderadas
+pela população), F15 e Gini de cada cenário e categoria, em uma linha por
+combinação. É a fonte para as tabelas da dissertação:
+
+```bash
+column -s, -t results/curitiba/analysis/indicators/indicators.csv | less -S
+```
+
+O limiar do F15 e o `k` do PTh vêm de `indicators:` no YAML da cidade; sem
+essas chaves valem `k: 3` e `threshold: 15.0`.
+
+As demais análises em `analysis/` partem de `comparison_<cenario>.parquet`
+e descrevem a variação entre cenários. `indicators/` parte das matrizes,
+porque PTh, F15 e Gini descrevem o nível de acesso de cada cenário.
 
 ## Ver a DAG do workflow
 
