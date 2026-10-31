@@ -31,7 +31,9 @@ def main() -> None:
         fig, ax = plt.subplots(figsize=(10, 10))
         data = data.to_crs(3857)
         data.plot(column="fracao_inacessivel", cmap="Reds", vmin=0, vmax=1, ax=ax,
-                  edgecolor="none", alpha=0.72, missing_kwds={"color": "#bdbdbd"}, legend=True)
+                  edgecolor="none", alpha=0.72,
+                  missing_kwds={"color": "#bdbdbd", "label": "Sem rede de pedestres (200 m)"},
+                  legend=True)
         try:
             ctx.add_basemap(ax, source=ctx.providers.Esri.WorldStreetMap, alpha=0.75, zoom="auto")
         except Exception as error:

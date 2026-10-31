@@ -257,8 +257,11 @@ def figures(a):
         cmap = ListedColormap(cores_tempo) if labels == rotulos_tempo else cmap_name
         cells.plot(column=faixa, cmap=cmap, legend=True, ax=ax,
                    edgecolor="white", linewidth=0.1,
-                   missing_kwds={"color": "lightgrey", "label": "Sem dados"},
-                   legend_kwds={"loc": "lower left", "fontsize": 7})
+                   missing_kwds={"color": "lightgrey", "label": "Sem rede (200 m)"},
+                   legend_kwds={"loc": "upper left", "fontsize": 8, "framealpha": 0.85})
+        minx, _, maxx, _ = cells.total_bounds
+        margin = (maxx - minx) * 0.40
+        ax.set_xlim(minx - margin, maxx + margin)
         try:
             ctx.add_basemap(ax, source=ctx.providers.Esri.WorldStreetMap, alpha=0.75, zoom="auto")
         except Exception as error:
@@ -281,14 +284,16 @@ def figures(a):
     if len(bins_delta) < 3:
         bins_delta = [delta_vals.min(), delta_vals.max()]
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 7))
+    fig, axes = plt.subplots(1, 3, figsize=(21, 8))
     plot_categorico(axes[0], "avg_time_typ", bins_typ, "RdYlBu_r",
                     "Tempo médio — típico", labels=rotulos_tempo)
     plot_categorico(axes[1], "avg_time_cond", bins_typ, "RdYlBu_r",
                     "Tempo médio — condicionado", inacessivel=inacessivel,
                     labels=rotulos_tempo)
     plot_categorico(axes[2], "delta_avg", bins_delta, "YlOrRd",
-                    "Δ tempo (condicionado − típico)", inacessivel=inacessivel)
+                    "Δ tempo (condicionado − típico)", inacessivel=inacessivel,
+                    labels=[f"{bins_delta[i]:.1f}–{bins_delta[i + 1]:.1f} min"
+                            for i in range(len(bins_delta) - 1)])
     fig.subplots_adjust(left=0.01, right=0.99, bottom=0.02, top=0.94, wspace=0.02)
     fig.savefig(a.comparison_figure, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -308,14 +313,16 @@ def figure_typical(a):
     fig, ax = plt.subplots(figsize=(10, 8))
     cells.plot(column="tempo_faixa", cmap=ListedColormap(colors), legend=True, ax=ax,
                edgecolor="white", linewidth=0.1,
-               missing_kwds={"color": "lightgrey", "label": "Sem dados"},
-               legend_kwds={"loc": "lower left", "fontsize": 8})
+               missing_kwds={"color": "lightgrey", "label": "Sem rede (200 m)"},
+               legend_kwds={"loc": "upper left", "fontsize": 9, "framealpha": 0.85})
+    minx, _, maxx, _ = cells.total_bounds
+    margin = (maxx - minx) * 0.40
+    ax.set_xlim(minx - margin, maxx + margin)
     try:
         ctx.add_basemap(ax, source=ctx.providers.Esri.WorldStreetMap, alpha=0.75, zoom="auto")
     except Exception as error:
         print(f"basemap indisponível: {error}")
-    ax.set_title("Tempo médio de acesso — Porto Alegre (cenário típico)")
-    ax.set_axis_off(); plt.tight_layout()
+    ax.set_axis_off()
     Path(a.output).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(a.output, dpi=150, bbox_inches="tight"); plt.close(fig)
 

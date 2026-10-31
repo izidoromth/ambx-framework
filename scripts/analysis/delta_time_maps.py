@@ -46,7 +46,7 @@ def main() -> None:
             print(f"basemap indisponível para {args.city}/{scenario}: {error}")
         ax.legend(handles=[Patch(facecolor=color, edgecolor="#555", label=label)
                            for color, label in zip(colors, labels)]
-                  + [Patch(facecolor="#bdbdbd", edgecolor="#555", label="Sem dado")],
+                  + [Patch(facecolor="#bdbdbd", edgecolor="#555", label="Sem rede de pedestres (200 m)")],
                   loc="lower left", frameon=True, title="Delta do tempo de acesso")
         ax.set_title(f"Delta do tempo de acesso — {args.city} — {scenario}")
         ax.set_axis_off()
