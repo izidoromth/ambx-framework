@@ -52,6 +52,17 @@ def _summary_row(
         row[f"{prefix}_erro_padrao"] = model.bse[term]
         row[f"{prefix}_t"] = model.tvalues[term]
         row[f"{prefix}_p_value"] = model.pvalues[term]
+
+    # Coeficientes padronizados: bruto multiplicado pela razão entre os desvios
+    # padrão do preditor e do alvo. Sem isso, coeficientes de eixos em escalas
+    # diferentes (0 a 1, ou minutos) não podem ser comparados entre si, e são
+    # esses os valores que as tabelas do texto reportam.
+    target_sd = data[target].std(ddof=0)
+    for term in predictors:
+        row[f"{term}_coef_padronizado"] = (
+            model.params[term] * data[term].std(ddof=0) / target_sd
+            if target_sd else None
+        )
     return row
 
 
