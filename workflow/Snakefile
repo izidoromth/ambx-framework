@@ -212,16 +212,20 @@ rule analysis_access_loss:
 
 
 rule analysis_indicators:
-    """PTh, F15 e Gini de todos os cenários em uma tabela única.
+    """PTh, F15 e Gini de todos os cenários, e a variação de cada um.
 
-    As demais análises partem do `comparison_*.parquet` (variação por par). Esta
-    parte das matrizes, porque os indicadores descrevem o nível de acesso, não a
-    diferença entre cenários.
+    Duas famílias de números saem daqui. Os indicadores descrevem o nível de
+    acesso e partem das matrizes; os deltas descrevem a variação em relação ao
+    típico e partem dos `comparison_*.parquet`, que por isso entram como
+    entrada: sem eles o Snakemake não saberia que um cenário novo invalidou a
+    tabela de variação.
     """
     input:
         ids=f"{OUT_DIR}/prepared/ids.parquet",
         matrices=expand(f"{OUT_DIR}/matrices/matrix_{{scenario}}.parquet",
-                        scenario=["typical"] + CONDITIONED_SCENARIOS)
+                        scenario=["typical"] + CONDITIONED_SCENARIOS),
+        comparisons=expand(f"{OUT_DIR}/comparison_{{scenario}}.parquet",
+                           scenario=CONDITIONED_SCENARIOS)
     output:
         directory(f"{OUT_DIR}/analysis/indicators")
     params:

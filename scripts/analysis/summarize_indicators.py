@@ -148,6 +148,101 @@ def summarize_city(results: Path, city: str, k: int | None, threshold: float) ->
     return pd.DataFrame(rows), pd.concat(pth_frames, ignore_index=True) if pth_frames else pd.DataFrame()
 
 
+def summarize_deltas(results: Path, city: str) -> pd.DataFrame:
+    """Variação do tempo de acesso entre o cenário típico e cada condicionado.
+
+    Os indicadores descrevem o nível de acesso; esta tabela descreve quanto ele
+    mudou. Cada cenário é comparado ao típico sobre as células que alcançam
+    algum destino nos dois, para que os valores não misturem universos
+    diferentes.
+    """
+    typical_path = results / city / "matrices" / "matrix_typical.parquet"
+    if not typical_path.exists():
+        return pd.DataFrame()
+
+    typical = pd.read_parquet(typical_path)
+    typical_cells = set(typical["cell_idx"].unique())
+
+    rows = []
+    for path in sorted((results / city).glob("comparison_*.parquet")):
+        scenario = SCENARIOS.get(f"matrix_{path.stem.removeprefix('comparison_')}",
+                                 path.stem.removeprefix("comparison_"))
+        comparison = pd.read_parquet(path)
+
+        delta = comparison["delta_t"].replace([np.inf, -np.inf], np.nan)
+        per_cell = delta.groupby(comparison["cell_idx"]).median()
+
+        # Pares perdidos: tempo infinito antes do descarte.
+        n_pairs = len(comparison)
+        n_lost = int((~np.isfinite(comparison["delta_t"])).sum())
+
+        # Células que perdem todos os destinos não entram nas estatísticas de
+        # tempo: ausência de acesso não é tempo alto.
+        lost_all = ((~np.isfinite(comparison["delta_t"]))
+                    .groupby(comparison["cell_idx"]).mean().eq(1))
+        lost_cells = set(lost_all[lost_all].index)
+
+        kept = per_cell.dropna()
+        # Células comparáveis: têm valor no cenário e não perderam acesso.
+        common = set(kept.index) & (typical_cells - lost_cells)
+
+        rows.append({
+            "city": city,
+            "scenario": scenario,
+            "n_cells": int(comparison["cell_idx"].nunique()),
+            "n_cells_with_delta": int(len(kept)),
+            "n_cells_lost_access": int(len(lost_cells)),
+            "pct_cells_lost_access": round(100.0 * len(lost_cells) / comparison["cell_idx"].nunique(), 2),
+            "n_pairs": n_pairs,
+            "n_pairs_lost": n_lost,
+            "pct_pairs_lost": round(100.0 * n_lost / n_pairs, 2) if n_pairs else 0.0,
+            "n_cells_common_with_typical": int(len(common)),
+            "delta_mean": round(float(kept.mean()), 3),
+            "delta_median": round(float(kept.median()), 3),
+            "delta_p90": round(float(kept.quantile(0.90)), 3),
+            "delta_max": round(float(kept.max()), 3),
+            "n_cells_zero_delta": int((kept == 0).sum()),
+            "pct_cells_zero_delta": round(100.0 * (kept == 0).mean(), 2),
+            # Estatísticas restritas às células comparáveis com o típico.
+            "delta_mean_common": round(float(kept.loc[list(common)].mean()), 3) if common else None,
+            "delta_median_common": round(float(kept.loc[list(common)].median()), 3) if common else None,
+            "delta_p90_common": round(float(kept.loc[list(common)].quantile(0.90)), 3) if common else None,
+        })
+
+    table = pd.DataFrame(rows)
+    if table.empty:
+        return table
+
+    # As estatísticas acima usam, cada uma, o conjunto de células do próprio
+    # cenário. Para comparar dois cenários é preciso restringir ambos ao
+    # conjunto que sobrevive nos dois, senão as medianas descrevem universos
+    # diferentes. A coluna abaixo guarda, para cada cenário, a estatística
+    # calculada sobre a interseção com o cenário de menor cobertura.
+    per_cell_by_scenario = {}
+    for path in sorted((results / city).glob("comparison_*.parquet")):
+        scenario = SCENARIOS.get(f"matrix_{path.stem.removeprefix('comparison_')}",
+                                 path.stem.removeprefix("comparison_"))
+        comparison = pd.read_parquet(path)
+        delta = comparison["delta_t"].replace([np.inf, -np.inf], np.nan)
+        per_cell_by_scenario[scenario] = delta.groupby(comparison["cell_idx"]).median().dropna()
+
+    if per_cell_by_scenario:
+        smallest = min(per_cell_by_scenario, key=lambda s: len(per_cell_by_scenario[s]))
+        shared = set.intersection(*(set(v.index) for v in per_cell_by_scenario.values()))
+        for row in rows:
+            values = per_cell_by_scenario.get(row["scenario"])
+            if values is None or not shared:
+                continue
+            subset = values.loc[list(shared)]
+            row["comparison_basis"] = smallest
+            row["n_cells_shared"] = len(shared)
+            row["delta_mean_shared"] = round(float(subset.mean()), 3)
+            row["delta_median_shared"] = round(float(subset.median()), 3)
+            row["delta_p90_shared"] = round(float(subset.quantile(0.90)), 3)
+
+    return pd.DataFrame(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
@@ -178,6 +273,12 @@ def main() -> None:
                 handle, indent=2,
             )
         print(f"{city}: {len(table)} linhas -> {output / 'indicators.csv'}")
+
+        deltas = summarize_deltas(args.results, city)
+        if not deltas.empty:
+            deltas.to_csv(output / "deltas.csv", index=False)
+            deltas.to_parquet(output / "deltas.parquet", index=False)
+            print(f"{city}: {len(deltas)} linhas -> {output / 'deltas.csv'}")
 
 
 if __name__ == "__main__":
