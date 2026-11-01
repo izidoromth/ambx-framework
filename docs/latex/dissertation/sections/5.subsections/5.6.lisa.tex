@@ -1,13 +1,13 @@
 \subsection{Spatial clusters}
 \label{subsec:results-lisa}
 
-The regression treats cells as independent, which they are not. The bivariate Moran statistic provides the global test: $I = 0.373$ in Curitiba under \texttt{thermal}, $0.362$ under \texttt{flood} and $0.410$ under \texttt{flood+landslide} in Porto Alegre, all significant at $p = 0.001$. Adding vegetation lowers the global statistic in Curitiba to $0.258$ under \texttt{thermal+green}, and adding landsliding lowers it in Porto Alegre to $0.165$ under \texttt{landslide}, which is what the drop in explained variance already indicated.
+The regression treats cells as independent, which they are not. The bivariate Moran statistic provides the global test, and it rejects that independence in every scenario. In Curitiba $I = 0.373$ under \texttt{thermal}, and in Porto Alegre $0.362$ under \texttt{flood} and $0.410$ under \texttt{flood+landslide}, all at $p = 0.001$. Adding vegetation lowers the global statistic in Curitiba to $0.258$ under \texttt{thermal+green}$, and adding landsliding lowers it in Porto Alegre to $0.165$ under \texttt{landslide}$, which is what the drop in explained variance already indicated.
 
-The local indicators locate where that association sits. They separate the cells whose value of the deprivation index and whose time increase are both high (High-High) or both low (Low-Low) from the two discordant classes, high deprivation with low increase (High-Low) and low deprivation with high increase (Low-High). Cells not significant at $p \le 0.05$ receive no class. Table~\ref{tab:results-lisa} gives the share of the grid in each class.
+The local indicators locate where that association sits. They separate the cells whose value of the SDI and whose time increase are both high (High-High) or both low (Low-Low) from the two discordant classes, high deprivation with low increase (High-Low) and low deprivation with high increase (Low-High). Cells not significant at $p \le 0.05$ receive no class. Table~\ref{tab:results-lisa} gives the share of the grid in each class.
 
 \begin{table}[htbp]
 \centering
-\caption{Share of cells in each local bivariate cluster between the deprivation index and the per-cell increase in access time, as percentage of the grid. Global Moran $I$ and the share of significant cells are given for each scenario.}
+\caption{Share of cells in each local bivariate cluster between the SDI and the per-cell increase in access time, as percentage of the grid. Global Moran $I$ and the share of significant cells are given for each scenario.}
 \label{tab:results-lisa}
 \fontsize{9}{9.6}\selectfont
 \setlength{\tabcolsep}{4pt}
@@ -29,7 +29,7 @@ Porto Alegre & \texttt{flood+landslide} & 0.410 & 43.7 & 8.8 & 22.3 & 12.3 & 0.3
 \begin{figure}[htbp]
 \centering
 \includegraphics[height=0.30\textheight]{figs/lisa_curitiba.png}
-\caption{Local bivariate clusters between the deprivation index and the per-cell increase in access time, Curitiba, under \texttt{thermal} (left) and \texttt{thermal+green} (right). Grey cells are not significant at $p \le 0.05$.}
+\caption{Local bivariate clusters between the SDI and the per-cell increase in access time, Curitiba, under \texttt{thermal} (left) and \texttt{thermal+green} (right). Grey cells are not significant at $p \le 0.05$.}
 \label{fig:results-lisa-curitiba}
 \end{figure}
 
@@ -38,7 +38,7 @@ In Curitiba (Figure~\ref{fig:results-lisa-curitiba}), the Low-Low class accounts
 \begin{figure}[htbp]
 \centering
 \includegraphics[height=0.26\textheight]{figs/lisa_porto_alegre.png}
-\caption{Local bivariate clusters between the deprivation index and the per-cell increase in access time, Porto Alegre, under \texttt{flood} (left), \texttt{landslide} (centre) and \texttt{flood+landslide} (right). Grey cells are not significant at $p \le 0.05$.}
+\caption{Local bivariate clusters between the SDI and the per-cell increase in access time, Porto Alegre, under \texttt{flood} (left), \texttt{landslide} (centre) and \texttt{flood+landslide} (right). Grey cells are not significant at $p \le 0.05$.}
 \label{fig:results-lisa-porto-alegre}
 \end{figure}
 
