@@ -31,6 +31,12 @@ Ao traduzir cada seção, resolver de passagem os itens de conteúdo já mapeado
 
 Pendências de texto (revisão do artigo):
 
+- [ ] Endereçar os 9 comentários do orientador anotados no Overleaf.
+      Lista completa em `comentarios-orientador.md`. Cinco seguem abertos
+      (3.methodology sem detalhe técnico, figura da 3.2, citação do
+      least-cost path, frase de equidade na intro, item "camadas aditivas"
+      como contribuição).
+
 - [ ] Títulos de figuras e tabelas ainda em português; traduzir junto com os
       scripts que os geram (`workflow/scripts/ambx_stage.py`,
       `scripts/analysis/*`), para que a regeneração não reintroduza o português.
