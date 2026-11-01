@@ -12,6 +12,9 @@ from scipy.stats import spearmanr
 
 
 AXES = ["eixo_sem_esgoto", "eixo_renda", "eixo_analfabetismo"]
+
+COMPOSITE = "ids"
+VARIABLES = AXES + [COMPOSITE]
 TARGET = "delta_t_mediano"
 
 
@@ -45,12 +48,12 @@ def main() -> None:
             tables = scenario_dir / "tables"
             figures.mkdir(parents=True, exist_ok=True)
             tables.mkdir(parents=True, exist_ok=True)
-            for axis in AXES:
+            for axis in VARIABLES:
                 valid = sample[[axis, TARGET]].replace([np.inf, -np.inf], np.nan).dropna()
                 rho, p_value = spearmanr(valid[axis], valid[TARGET])
                 long.append({"city": city, "scenario": scenario, "variable": axis,
                              "target": TARGET, "n": len(valid), "rho": rho, "p_value": p_value})
-            variables = AXES + [TARGET]
+            variables = VARIABLES + [TARGET]
             corr = sample[variables].replace([np.inf, -np.inf], np.nan).corr(method="spearman")
             fig, ax = plt.subplots(figsize=(8, 6))
             image = ax.imshow(corr, vmin=-1, vmax=1, cmap="RdBu_r")
