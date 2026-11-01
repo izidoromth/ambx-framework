@@ -1,0 +1,31 @@
+\subsection{Simultaneous regression}
+\label{subsec:results-regression}
+
+Correlations treat each axis on its own; a regression with the three axes as simultaneous predictors separates the contribution of each once the others are held. The dependent variable is the per-cell increase in access time, not the level of access, so the coefficients describe who absorbs the delay and not who was already poorly served. Table~\ref{tab:results-regression} reports the standardized coefficients, which express each axis in standard deviations of both the axis and the outcome, so that axes measured on different scales become comparable.
+
+\begin{table}[htbp]
+\centering
+\caption{Standardized coefficients of the regression of per-cell median access time increase on the three axes of the deprivation index, and variance inflation factors of the same model. All coefficients significant at $p < 0.01$ except those marked.}
+\label{tab:results-regression}
+\footnotesize
+\begin{tabular}{llrrrrr}
+\hline
+City & Scenario & Sanitation & Income & Illiteracy & Adj.\ $R^2$ & VIF \\
+\hline
+Curitiba & \texttt{thermal} & $0.382$ & $0.331$ & $-0.163$ & 0.205 & 1.18--1.87 \\
+Curitiba & \texttt{thermal\_demo} & $0.383$ & $0.330$ & $-0.162$ & 0.206 & 1.18--1.87 \\
+Curitiba & \texttt{thermal+green} & $0.111$ & $0.436$ & $-0.147$ & 0.146 & 1.18--1.87 \\
+Curitiba & \texttt{thermal+green\_demo} & $0.360$ & $0.346$ & $-0.161$ & 0.200 & 1.18--1.87 \\
+Porto Alegre & \texttt{flood} & $0.375$ & $0.006^{*}$ & $0.051$ & 0.170 & 1.72--2.25 \\
+Porto Alegre & \texttt{landslide} & $0.163$ & $-0.036^{*}$ & $0.055^{*}$ & 0.032 & 1.78--2.40 \\
+Porto Alegre & \texttt{flood+landslide} & $0.420$ & $-0.047^{*}$ & $0.104$ & 0.215 & 1.78--2.40 \\
+\hline
+\multicolumn{7}{l}{\footnotesize $^{*}$not significant at $p < 0.05$.} \\
+\end{tabular}
+\end{table}
+
+In Curitiba the sanitation and income coefficients are positive and the illiteracy coefficient is negative, $-0.163$ in the thermal scenario, with an adjusted $R^2$ of 0.205. The variance inflation factors stay between 1.18 and 1.87, far below the threshold of 5, so collinearity does not explain the reversal. Once sanitation and income are held fixed, illiteracy marks the denser and better-connected tracts, where a high-illiteracy tract in the centre still has alternative routes when its edges are penalized and loses less time than a tract with the same illiteracy in the periphery.
+
+Adding vegetation changes which axis carries the relation. The sanitation coefficient falls from $0.382$ to $0.111$, the income coefficient rises from $0.331$ to $0.436$, and the explained variance drops from 0.205 to 0.146. The attenuation is concentrated where the thermal penalty is strongest, and the vegetation layer removes part of the time increase from exactly those segments, so the axis that described where the heat was mapped loses part of its grip on the outcome. What remains explaining the change is income, now the dominant axis. The cells that keep losing time are the poor ones that the tree cover does not reach.
+
+Porto Alegre behaves differently. Under flooding, sanitation takes $0.375$ and the other two axes fall to 0.006 and 0.051, the first of them not significant. One axis absorbs almost all the explained variance, adjusted $R^2$ of 0.170. Under landsliding, the coefficients collapse together, adjusted $R^2$ of 0.032, income and illiteracy not significant, and only sanitation retains $0.163$. An interdiction by polygon removes cells from the matrix according to where the slope is, a criterion the deprivation index does not see. Under the two layers together, sanitation reaches $0.420$, the highest coefficient in the table, with adjusted $R^2$ of 0.215. A cell without adequate sanitation in a flood-prone area is both more likely to be inundated and less likely to have an alternative route, and the two conditions compound.
